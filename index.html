@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Web3_AI概論 自己紹介ページ — 私の興味・関心・将来の夢・AIに対する考え方をご紹介します。" />
+  <title>自己紹介 | Web3_AI概論</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&display=swap" rel="stylesheet" />
+  <style>
+    /* ── リセット & ベース ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0b0f1a;
+      --surface:   #111827;
+      --card:      #1a2235;
+      --border:    rgba(99, 179, 237, 0.18);
+      --accent1:   #63b3ed;   /* sky blue */
+      --accent2:   #b794f4;   /* purple */
+      --accent3:   #68d391;   /* mint */
+      --accent4:   #f6ad55;   /* amber */
+      --text:      #e2e8f0;
+      --muted:     #94a3b8;
+      --radius:    16px;
+      --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Noto Sans JP', sans-serif;
+      font-weight: 400;
+      line-height: 1.8;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── 背景グラデーション装飾 ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 40% at 10% 10%, rgba(99,179,237,0.10) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 50% at 90% 80%, rgba(183,148,244,0.10) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── コンテナ ── */
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 20px 80px;
+    }
+
+    /* ── ヘッダー ── */
+    header {
+      text-align: center;
+      padding: 80px 0 60px;
+    }
+
+    .avatar {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent1), var(--accent2));
+      margin: 0 auto 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      box-shadow: 0 0 40px rgba(99,179,237,0.35);
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-10px); }
+    }
+
+    header h1 {
+      font-size: clamp(1.8rem, 5vw, 2.8rem);
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      background: linear-gradient(90deg, var(--accent1), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+    }
+
+    header .subtitle {
+      font-size: 0.95rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+    }
+
+    /* ── ナビバー ── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      background: rgba(11,15,26,0.75);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 0;
+      margin-bottom: 0;
+    }
+
+    nav ul {
+      list-style: none;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 6px 20px;
+    }
+
+    nav a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.88rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      padding: 4px 10px;
+      border-radius: 20px;
+      transition: color var(--transition), background var(--transition);
+    }
+
+    nav a:hover {
+      color: var(--accent1);
+      background: rgba(99,179,237,0.12);
+    }
+
+    /* ── セクション共通 ── */
+    section {
+      margin-top: 56px;
+      scroll-margin-top: 70px;
+    }
+
+    .section-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent1);
+      margin-bottom: 10px;
+    }
+
+    .section-label .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent1);
+    }
+
+    section h2 {
+      font-size: clamp(1.4rem, 4vw, 2rem);
+      font-weight: 700;
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    section h2::after {
+      content: '';
+      display: block;
+      margin-top: 10px;
+      width: 40px;
+      height: 3px;
+      border-radius: 2px;
+      background: linear-gradient(90deg, var(--accent1), var(--accent2));
+    }
+
+    /* ── カード ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      margin-bottom: 16px;
+      transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+      border-color: rgba(99,179,237,0.35);
+    }
+
+    .card p { color: var(--text); line-height: 1.9; }
+
+    /* ── タググリッド ── */
+    .tag-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 14px;
+    }
+
+    .tag-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      transition: transform var(--transition), border-color var(--transition);
+    }
+
+    .tag-item:hover {
+      transform: translateY(-4px);
+      border-color: rgba(183,148,244,0.4);
+    }
+
+    .tag-icon {
+      font-size: 1.8rem;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .tag-info strong {
+      display: block;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .tag-info span {
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── タイムライン（将来やりたいこと） ── */
+    .timeline { position: relative; padding-left: 28px; }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 6px; top: 4px; bottom: 4px;
+      width: 2px;
+      background: linear-gradient(to bottom, var(--accent1), var(--accent2), var(--accent3));
+      border-radius: 2px;
+    }
+
+    .tl-item {
+      position: relative;
+      margin-bottom: 28px;
+    }
+
+    .tl-item::before {
+      content: '';
+      position: absolute;
+      left: -24px;
+      top: 6px;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      border: 2px solid var(--accent1);
+      background: var(--bg);
+      transition: background var(--transition);
+    }
+
+    .tl-item:hover::before { background: var(--accent1); }
+
+    .tl-item:nth-child(2)::before { border-color: var(--accent2); }
+    .tl-item:nth-child(2):hover::before { background: var(--accent2); }
+    .tl-item:nth-child(3)::before { border-color: var(--accent3); }
+    .tl-item:nth-child(3):hover::before { background: var(--accent3); }
+    .tl-item:nth-child(4)::before { border-color: var(--accent4); }
+    .tl-item:nth-child(4):hover::before { background: var(--accent4); }
+
+    .tl-phase {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .tl-item:nth-child(1) .tl-phase { color: var(--accent1); }
+    .tl-item:nth-child(2) .tl-phase { color: var(--accent2); }
+    .tl-item:nth-child(3) .tl-phase { color: var(--accent3); }
+    .tl-item:nth-child(4) .tl-phase { color: var(--accent4); }
+
+    .tl-item h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .tl-item p { font-size: 0.9rem; color: var(--muted); line-height: 1.7; }
+
+    /* ── AI考え方 ── */
+    .ai-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    .ai-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      transition: transform var(--transition), border-color var(--transition);
+    }
+
+    .ai-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(104,211,145,0.35);
+    }
+
+    .ai-card .ai-emoji { font-size: 2rem; margin-bottom: 12px; }
+
+    .ai-card h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--accent3);
+    }
+
+    .ai-card p { font-size: 0.875rem; color: var(--muted); line-height: 1.75; }
+
+    /* ── フッター ── */
+    footer {
+      margin-top: 80px;
+      text-align: center;
+      padding: 32px 0;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.82rem;
+      letter-spacing: 0.06em;
+    }
+
+    footer span { color: var(--accent1); }
+
+    /* ── アニメーション（フェードイン） ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .fade-up {
+      opacity: 0;
+      animation: fadeUp 0.7s ease forwards;
+    }
+
+    .fade-up:nth-child(1) { animation-delay: 0.05s; }
+    .fade-up:nth-child(2) { animation-delay: 0.15s; }
+    .fade-up:nth-child(3) { animation-delay: 0.25s; }
+    .fade-up:nth-child(4) { animation-delay: 0.35s; }
+    .fade-up:nth-child(5) { animation-delay: 0.45s; }
+    .fade-up:nth-child(6) { animation-delay: 0.55s; }
+
+    /* ── スマホ対応 ── */
+    @media (max-width: 600px) {
+      .container { padding: 0 14px 60px; }
+      header { padding: 56px 0 40px; }
+      .card { padding: 22px 20px; }
+      .tag-grid { grid-template-columns: 1fr; }
+      .ai-grid  { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ナビゲーション -->
+  <nav>
+    <ul>
+      <li><a href="#about">自己紹介</a></li>
+      <li><a href="#interests">興味・関心</a></li>
+      <li><a href="#future">将来やりたいこと</a></li>
+      <li><a href="#ai">AIへの考え方</a></li>
+    </ul>
+  </nav>
+
+  <div class="container">
+
+    <!-- ヘッダー -->
+    <header>
+      <div class="avatar" aria-hidden="true">🧑‍💻</div>
+      <h1>はじめまして</h1>
+      <p class="subtitle">Web3_AI概論 ／ 自己紹介ページ</p>
+    </header>
+
+    <!-- ① 自己紹介 -->
+    <section id="about">
+      <div class="section-label"><span class="dot"></span>01 / About Me</div>
+      <h2>自己紹介</h2>
+
+      <div class="card fade-up">
+        <p>
+          こんにちは！ 私は現在、大学でWeb3とAIについて学んでいる学生です。
+          もともとプログラミングには興味があり、最近はブロックチェーン技術や
+          機械学習の仕組みに強く惹かれています。
+        </p>
+      </div>
+      <div class="card fade-up">
+        <p>
+          授業や個人学習を通じて、テクノロジーが社会をどう変えていくかを
+          理解したいと考えています。コードを書くことはもちろん、
+          技術の<strong>「なぜ？」</strong>を掘り下げることが好きです。
+        </p>
+      </div>
+      <div class="card fade-up">
+        <p>
+          趣味は読書（技術書・SF）、音楽鑑賞、そして新しいツールを
+          とにかく試してみること。好奇心が人生の原動力です 🚀
+        </p>
+      </div>
+    </section>
+
+    <!-- ② 興味・関心 -->
+    <section id="interests">
+      <div class="section-label"><span class="dot" style="background:var(--accent2)"></span>02 / Interests</div>
+      <h2>興味・関心</h2>
+
+      <div class="tag-grid">
+        <div class="tag-item fade-up">
+          <span class="tag-icon">⛓️</span>
+          <div class="tag-info">
+            <strong>ブロックチェーン</strong>
+            <span>分散型台帳の仕組み、スマートコントラクト、DeFiに関心があります。</span>
+          </div>
+        </div>
+        <div class="tag-item fade-up">
+          <span class="tag-icon">🤖</span>
+          <div class="tag-info">
+            <strong>生成AI / LLM</strong>
+            <span>大規模言語モデルの仕組みとプロンプト設計を学んでいます。</span>
+          </div>
+        </div>
+        <div class="tag-item fade-up">
+          <span class="tag-icon">🌐</span>
+          <div class="tag-info">
+            <strong>Web開発</strong>
+            <span>フロントエンドからバックエンドまで、Web全体を理解したいです。</span>
+          </div>
+        </div>
+        <div class="tag-item fade-up">
+          <span class="tag-icon">🔐</span>
+          <div class="tag-info">
+            <strong>セキュリティ</strong>
+            <span>暗号技術や秘密鍵管理など、セキュリティの基礎に興味があります。</span>
+          </div>
+        </div>
+        <div class="tag-item fade-up">
+          <span class="tag-icon">📊</span>
+          <div class="tag-info">
+            <strong>データ分析</strong>
+            <span>オンチェーンデータや機械学習を使った分析に取り組んでいます。</span>
+          </div>
+        </div>
+        <div class="tag-item fade-up">
+          <span class="tag-icon">🎮</span>
+          <div class="tag-info">
+            <strong>ゲーム / メタバース</strong>
+            <span>NFTゲームやバーチャル空間の可能性を探っています。</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ③ 将来やりたいこと -->
+    <section id="future">
+      <div class="section-label"><span class="dot" style="background:var(--accent3)"></span>03 / Future Goals</div>
+      <h2>将来やりたいこと</h2>
+
+      <div class="card">
+        <div class="timeline">
+          <div class="tl-item">
+            <div class="tl-phase">Short Term — 近期</div>
+            <h3>技術の土台をつくる</h3>
+            <p>
+              まずはプログラミング（Python・JavaScript）とブロックチェーンの
+              基礎をしっかり固め、自分で小さなdAppを作れるレベルを目指します。
+            </p>
+          </div>
+          <div class="tl-item">
+            <div class="tl-phase">Mid Term — 中期</div>
+            <h3>Web3 × AI のプロダクトを開発</h3>
+            <p>
+              スマートコントラクトとAIを組み合わせた実用的なサービスを
+              開発し、実際のユーザーに使ってもらえるものを作りたいです。
+            </p>
+          </div>
+          <div class="tl-item">
+            <div class="tl-phase">Long Term — 長期</div>
+            <h3>社会課題をテクノロジーで解決</h3>
+            <p>
+              金融包摂・教育格差・情報の透明性など、社会的な課題に
+              Web3やAIで向き合えるエンジニア・起業家を目指しています。
+            </p>
+          </div>
+          <div class="tl-item">
+            <div class="tl-phase">Dream — 夢</div>
+            <h3>グローバルに活躍する</h3>
+            <p>
+              国境を越えたオープンなコミュニティで貢献し、
+              世界中の人々が恩恵を受けられるプロダクトを作ることが夢です。
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ④ AIへの考え方 -->
+    <section id="ai">
+      <div class="section-label"><span class="dot" style="background:var(--accent4)"></span>04 / My View on AI</div>
+      <h2>AIに対する自分の考え方</h2>
+
+      <div class="ai-grid">
+        <div class="ai-card fade-up">
+          <div class="ai-emoji">🛠️</div>
+          <h3>AIは「道具」である</h3>
+          <p>
+            AIはあくまで人間の能力を拡張する道具だと考えています。
+            使いこなせるかどうかは、使う人間の目的意識と倫理観にかかっています。
+          </p>
+        </div>
+        <div class="ai-card fade-up">
+          <div class="ai-emoji">🤝</div>
+          <h3>人間との協働が鍵</h3>
+          <p>
+            AIが仕事を「奪う」のではなく、人間と協働することで
+            今まで不可能だったことが可能になると楽観的に捉えています。
+          </p>
+        </div>
+        <div class="ai-card fade-up">
+          <div class="ai-emoji">⚖️</div>
+          <h3>倫理・公平性を大切に</h3>
+          <p>
+            バイアスやプライバシーの問題を無視したAI活用は危険です。
+            技術を学ぶ者として、倫理的な視点を常に持ち続けたいです。
+          </p>
+        </div>
+        <div class="ai-card fade-up">
+          <div class="ai-emoji">📚</div>
+          <h3>学び続ける姿勢</h3>
+          <p>
+            AIの進化は非常に速く、昨日の常識が今日変わることも珍しくありません。
+            変化に適応し、学び続けることが最大の競争力だと思います。
+          </p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:20px; border-color: rgba(246,173,85,0.25);">
+        <p style="font-size:0.93rem;">
+          💬 <strong>一言まとめ：</strong>
+          AIは「魔法」でも「脅威」でもなく、人間が責任を持って設計・運用する
+          <em>技術の一形態</em>だと考えています。
+          Web3の分散性とAIの知性を組み合わせることで、
+          よりフェアで透明な未来が築けると信じています。
+        </p>
+      </div>
+    </section>
+
+    <!-- フッター -->
+    <footer>
+      <p>Made with <span>♥</span> for Web3_AI概論 &nbsp;|&nbsp; &copy; 2025</p>
+    </footer>
+
+  </div><!-- /container -->
+
+</body>
+</html>
