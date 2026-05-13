@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🍅 Focus Flow — ポモドーロタイマー</title>
+  <meta name="description" content="美しいポモドーロタイマーで集中力を最大化。25分の作業と休憩を繰り返して生産性を向上させよう。" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a12;
+      --surface: rgba(255,255,255,0.04);
+      --surface-2: rgba(255,255,255,0.08);
+      --border: rgba(255,255,255,0.08);
+      --text: #f0f0f8;
+      --text-sub: rgba(240,240,248,0.5);
+      --accent-work: #e94560;
+      --accent-break: #00c9a7;
+      --accent-long: #6c63ff;
+      --glow-work: rgba(233,69,96,0.4);
+      --glow-break: rgba(0,201,167,0.4);
+      --glow-long: rgba(108,99,255,0.4);
+      --current-accent: var(--accent-work);
+      --current-glow: var(--glow-work);
+      --radius: 20px;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px 16px 48px;
+    }
+
+    /* ── Animated background ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 20% 20%, rgba(233,69,96,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 80% 80%, rgba(108,99,255,0.10) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      padding-top: 16px;
+    }
+    .logo {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, var(--current-accent), #fff 80%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      transition: all 0.6s ease;
+    }
+    .subtitle {
+      font-size: 0.78rem;
+      color: var(--text-sub);
+      margin-top: 4px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    /* ── Mode selector ── */
+    .mode-tabs {
+      display: flex;
+      gap: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      padding: 6px;
+      width: 100%;
+    }
+    .mode-btn {
+      flex: 1;
+      padding: 10px 8px;
+      border: none;
+      border-radius: 40px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-sub);
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      white-space: nowrap;
+    }
+    .mode-btn.active {
+      background: var(--current-accent);
+      color: #fff;
+      box-shadow: 0 0 20px var(--current-glow);
+    }
+    .mode-btn:not(.active):hover {
+      color: var(--text);
+      background: var(--surface-2);
+    }
+
+    /* ── Timer circle ── */
+    .timer-wrap {
+      position: relative;
+      width: 280px;
+      height: 280px;
+      filter: drop-shadow(0 0 40px var(--current-glow));
+      transition: filter 0.6s ease;
+    }
+    .timer-wrap svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+    .track {
+      fill: none;
+      stroke: rgba(255,255,255,0.06);
+      stroke-width: 8;
+    }
+    .progress {
+      fill: none;
+      stroke: var(--current-accent);
+      stroke-width: 8;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 1s linear, stroke 0.6s ease;
+    }
+    .timer-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+    .time-display {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 3.8rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      color: var(--text);
+    }
+    .mode-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--current-accent);
+      transition: color 0.6s ease;
+    }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .btn-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-sub);
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+    .btn-icon:hover {
+      background: var(--surface-2);
+      color: var(--text);
+      transform: scale(1.08);
+    }
+    .btn-main {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      border: none;
+      background: var(--current-accent);
+      color: #fff;
+      font-size: 1.6rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 32px var(--current-glow);
+      transition: all 0.3s ease;
+    }
+    .btn-main:hover {
+      transform: scale(1.08);
+      box-shadow: 0 0 48px var(--current-glow);
+    }
+    .btn-main:active { transform: scale(0.96); }
+
+    /* ── Session dots ── */
+    .sessions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sessions-label {
+      font-size: 0.72rem;
+      color: var(--text-sub);
+      letter-spacing: 0.08em;
+    }
+    .dots {
+      display: flex;
+      gap: 8px;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 1.5px solid var(--current-accent);
+      background: transparent;
+      transition: all 0.3s ease;
+    }
+    .dot.filled {
+      background: var(--current-accent);
+      box-shadow: 0 0 8px var(--current-glow);
+    }
+
+    /* ── Stats card ── */
+    .stats {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .stat-item {
+      text-align: center;
+    }
+    .stat-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--current-accent);
+      transition: color 0.6s ease;
+    }
+    .stat-lbl {
+      font-size: 0.68rem;
+      color: var(--text-sub);
+      letter-spacing: 0.08em;
+      margin-top: 2px;
+    }
+
+    /* ── Task input ── */
+    .task-area {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+    }
+    .task-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-sub);
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .task-input {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.9rem;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .task-input::placeholder { color: var(--text-sub); }
+    .task-input:focus { border-color: var(--current-accent); }
+
+    /* ── Toast notification ── */
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--current-accent);
+      color: #fff;
+      padding: 12px 28px;
+      border-radius: 50px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+      z-index: 100;
+      white-space: nowrap;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ── Running pulse ── */
+    @keyframes pulse-ring {
+      0% { box-shadow: 0 0 32px var(--current-glow); }
+      50% { box-shadow: 0 0 56px var(--current-glow), 0 0 80px var(--current-glow); }
+      100% { box-shadow: 0 0 32px var(--current-glow); }
+    }
+    .btn-main.running { animation: pulse-ring 2s ease-in-out infinite; }
+
+    /* ── Footer ── */
+    footer {
+      font-size: 0.7rem;
+      color: var(--text-sub);
+      text-align: center;
+      margin-top: 8px;
+    }
+    footer a { color: var(--text-sub); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo" id="logo">🍅 Focus Flow</div>
+    <div class="subtitle">Pomodoro Timer — 集中を習慣に</div>
+  </header>
+
+  <!-- Mode Tabs -->
+  <div class="mode-tabs" role="tablist" aria-label="タイマーモード">
+    <button class="mode-btn active" id="tab-work"   data-mode="work"  role="tab">🔥 作業 25分</button>
+    <button class="mode-btn"        id="tab-break"  data-mode="break" role="tab">☕ 休憩 5分</button>
+    <button class="mode-btn"        id="tab-long"   data-mode="long"  role="tab">🌙 長休憩 15分</button>
+  </div>
+
+  <!-- Timer Circle -->
+  <div class="timer-wrap" id="timerWrap">
+    <svg viewBox="0 0 280 280" aria-hidden="true">
+      <circle class="track"    cx="140" cy="140" r="126" />
+      <circle class="progress" cx="140" cy="140" r="126"
+              id="progressRing"
+              stroke-dasharray="792"
+              stroke-dashoffset="0" />
+    </svg>
+    <div class="timer-center">
+      <div class="time-display" id="timeDisplay">25:00</div>
+      <div class="mode-label"   id="modeLabel">FOCUS TIME</div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button class="btn-icon" id="btnReset"  title="リセット" aria-label="リセット">↺</button>
+    <button class="btn-main" id="btnPlay"   title="スタート/一時停止" aria-label="スタート">▶</button>
+    <button class="btn-icon" id="btnSkip"   title="スキップ" aria-label="スキップ">⏭</button>
+  </div>
+
+  <!-- Session dots -->
+  <div class="sessions">
+    <span class="sessions-label">セッション</span>
+    <div class="dots" id="dots">
+      <div class="dot" id="d0"></div>
+      <div class="dot" id="d1"></div>
+      <div class="dot" id="d2"></div>
+      <div class="dot" id="d3"></div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat-item">
+      <div class="stat-val" id="statSessions">0</div>
+      <div class="stat-lbl">完了セッション</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val" id="statFocus">0</div>
+      <div class="stat-lbl">集中時間 (分)</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val" id="statStreak">0</div>
+      <div class="stat-lbl">連続日数 🔥</div>
+    </div>
+  </div>
+
+  <!-- Task input -->
+  <div class="task-area">
+    <div class="task-label">今やること</div>
+    <input class="task-input" id="taskInput"
+           type="text"
+           placeholder="タスクを入力（例：講義のレポートを書く）"
+           maxlength="80"
+           aria-label="現在のタスク" />
+  </div>
+
+  <footer>
+    Made with ❤️ by sou0136 &nbsp;·&nbsp;
+    <a href="https://github.com/kato1105/web3-self-intro" target="_blank" rel="noopener">GitHub</a>
+  </footer>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast" role="alert" aria-live="polite"></div>
+
+<script>
+  /* ── Config ── */
+  const MODES = {
+    work:  { label: 'FOCUS TIME',  emoji: '🔥', mins: 25, accent: '#e94560', glow: 'rgba(233,69,96,0.4)' },
+    break: { label: 'SHORT BREAK', emoji: '☕', mins: 5,  accent: '#00c9a7', glow: 'rgba(0,201,167,0.4)' },
+    long:  { label: 'LONG BREAK',  emoji: '🌙', mins: 15, accent: '#6c63ff', glow: 'rgba(108,99,255,0.4)' },
+  };
+  const CIRCUMFERENCE = 2 * Math.PI * 126; // ≈ 791.7
+
+  /* ── State ── */
+  let mode       = 'work';
+  let totalSecs  = 25 * 60;
+  let remaining  = totalSecs;
+  let running    = false;
+  let timerId    = null;
+  let sessions   = 0;  // completed work sessions today
+  let focusMins  = 0;
+  let streak     = loadStreak();
+
+  /* ── DOM refs ── */
+  const timeDisplay  = document.getElementById('timeDisplay');
+  const modeLabel    = document.getElementById('modeLabel');
+  const progressRing = document.getElementById('progressRing');
+  const btnPlay      = document.getElementById('btnPlay');
+  const btnReset     = document.getElementById('btnReset');
+  const btnSkip      = document.getElementById('btnSkip');
+  const toastEl      = document.getElementById('toast');
+  const statSessions = document.getElementById('statSessions');
+  const statFocus    = document.getElementById('statFocus');
+  const statStreak   = document.getElementById('statStreak');
+  const modeTabs     = document.querySelectorAll('.mode-btn');
+
+  /* ── Audio (Web Audio API) ── */
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  let audioCtx = null;
+  function ensureAudio() { if (!audioCtx) audioCtx = new AudioCtx(); }
+  function beep(freq = 440, dur = 0.3, type = 'sine', vol = 0.25) {
+    ensureAudio();
+    const osc  = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.type = type; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    osc.start(); osc.stop(audioCtx.currentTime + dur);
+  }
+  function chime() {
+    [523, 659, 784].forEach((f, i) => setTimeout(() => beep(f, 0.5, 'sine', 0.2), i * 180));
+  }
+
+  /* ── Rendering ── */
+  function fmt(s) {
+    const m = Math.floor(s / 60), sec = s % 60;
+    return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  }
+  function render() {
+    timeDisplay.textContent = fmt(remaining);
+    const pct = remaining / totalSecs;
+    progressRing.style.strokeDashoffset = CIRCUMFERENCE * pct;
+    document.title = `${fmt(remaining)} — Focus Flow`;
+  }
+  function applyTheme() {
+    const m = MODES[mode];
+    document.documentElement.style.setProperty('--current-accent', m.accent);
+    document.documentElement.style.setProperty('--current-glow',   m.glow);
+    progressRing.style.stroke = m.accent;
+    modeLabel.textContent     = m.label;
+    statSessions.style.color  = m.accent;
+    statFocus.style.color     = m.accent;
+    statStreak.style.color    = m.accent;
+  }
+  function updateDots() {
+    document.querySelectorAll('.dot').forEach((d, i) => {
+      d.classList.toggle('filled', i < (sessions % 4));
+    });
+  }
+  function updateStats() {
+    statSessions.textContent = sessions;
+    statFocus.textContent    = focusMins;
+    statStreak.textContent   = streak;
+  }
+
+  /* ── Toast ── */
+  let toastTimer = null;
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 3000);
+  }
+
+  /* ── Timer logic ── */
+  function setMode(m) {
+    pause();
+    mode = m;
+    totalSecs = MODES[m].mins * 60;
+    remaining = totalSecs;
+    modeTabs.forEach(b => b.classList.toggle('active', b.dataset.mode === m));
+    applyTheme();
+    render();
+  }
+  function start() {
+    running = true;
+    btnPlay.textContent = '⏸';
+    btnPlay.classList.add('running');
+    timerId = setInterval(tick, 1000);
+  }
+  function pause() {
+    running = false;
+    btnPlay.textContent = '▶';
+    btnPlay.classList.remove('running');
+    clearInterval(timerId);
+  }
+  function tick() {
+    remaining--;
+    render();
+    if (remaining <= 0) onComplete();
+  }
+  function onComplete() {
+    pause();
+    chime();
+    if (mode === 'work') {
+      sessions++;
+      focusMins += MODES.work.mins;
+      updateDots();
+      updateStats();
+      saveStreak();
+      showToast(`🎉 セッション完了！休憩しましょう`);
+      setTimeout(() => setMode(sessions % 4 === 0 ? 'long' : 'break'), 800);
+    } else {
+      showToast('💪 休憩終了！次のセッションを始めよう');
+      setTimeout(() => setMode('work'), 800);
+    }
+  }
+
+  /* ── Streak persistence ── */
+  function loadStreak() {
+    try {
+      const s = JSON.parse(localStorage.getItem('ff_streak') || '{}');
+      const today = new Date().toDateString();
+      if (s.date === today) return s.count || 0;
+      const yesterday = new Date(Date.now() - 86400000).toDateString();
+      return s.date === yesterday ? (s.count || 0) : 0;
+    } catch { return 0; }
+  }
+  function saveStreak() {
+    const today = new Date().toDateString();
+    const prev  = JSON.parse(localStorage.getItem('ff_streak') || '{}');
+    const yesterday = new Date(Date.now() - 86400000).toDateString();
+    let count = 1;
+    if (prev.date === today) count = prev.count;
+    else if (prev.date === yesterday) count = (prev.count || 0) + 1;
+    streak = count;
+    localStorage.setItem('ff_streak', JSON.stringify({ date: today, count }));
+    updateStats();
+  }
+
+  /* ── Events ── */
+  btnPlay.addEventListener('click', () => {
+    ensureAudio();
+    running ? pause() : start();
+  });
+  btnReset.addEventListener('click', () => {
+    pause();
+    remaining = totalSecs;
+    render();
+    beep(330, 0.1);
+  });
+  btnSkip.addEventListener('click', () => {
+    pause();
+    const next = mode === 'work' ? 'break' : 'work';
+    setMode(next);
+    beep(440, 0.1);
+  });
+  modeTabs.forEach(btn => {
+    btn.addEventListener('click', () => setMode(btn.dataset.mode));
+  });
+
+  /* ── Keyboard shortcuts ── */
+  document.addEventListener('keydown', e => {
+    if (e.target === document.getElementById('taskInput')) return;
+    if (e.code === 'Space') { e.preventDefault(); btnPlay.click(); }
+    if (e.code === 'KeyR')  btnReset.click();
+    if (e.code === 'KeyS')  btnSkip.click();
+  });
+
+  /* ── Init ── */
+  applyTheme();
+  render();
+  updateDots();
+  updateStats();
+</script>
+</body>
+</html>
