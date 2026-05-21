@@ -23,7 +23,7 @@
 → 投稿は30分間有効で自動リセット（情報が古くならない）
 
 **🔗 プロトタイプリンク**
-（GitHubやVercelにデプロイ後にURLを記載）
+https://lecture5-zeta.vercel.app
 
 **🛠️ 技術スタック**
 HTML / CSS / Vanilla JS / Leaflet.js / localStorage
