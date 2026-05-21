@@ -857,17 +857,26 @@
 
 <script>
 // ───────────────────────────────────
-// サンプルスポットデータ（東京都内）
+// サンプルスポットデータ（東京主要エリア：渋谷・新宿・東京）
 // ───────────────────────────────────
 const SPOTS = [
-  { id: 1,  name: 'スターバックス 渋谷公園通り店', type: 'カフェ', lat: 35.6627, lng: 139.6987, wifi: true,  power: true,  quiet: '普通' },
-  { id: 2,  name: '渋谷区立 中央図書館',           type: '図書館', lat: 35.6688, lng: 139.7005, wifi: true,  power: false, quiet: '静か' },
-  { id: 3,  name: 'コメダ珈琲 渋谷神宮前店',       type: 'カフェ', lat: 35.6638, lng: 139.7055, wifi: true,  power: true,  quiet: '普通' },
-  { id: 4,  name: '渋谷マークシティ 自習スペース', type: '自習室', lat: 35.6583, lng: 139.6981, wifi: true,  power: true,  quiet: '静か' },
-  { id: 5,  name: 'タリーズコーヒー 表参道店',     type: 'カフェ', lat: 35.6692, lng: 139.7127, wifi: true,  power: false, quiet: '普通' },
-  { id: 6,  name: '港区立 赤坂図書館',             type: '図書館', lat: 35.6712, lng: 139.7352, wifi: true,  power: false, quiet: '静か' },
-  { id: 7,  name: 'ドトールコーヒー 恵比寿駅前店', type: 'カフェ', lat: 35.6464, lng: 139.7100, wifi: false, power: true,  quiet: '普通' },
-  { id: 8,  name: '目黒区民センター 学習室',       type: '自習室', lat: 35.6403, lng: 139.7010, wifi: true,  power: true,  quiet: '静か' },
+  // ── 渋谷エリア ──
+  { id: 1,  name: 'スターバックス 渋谷公園通り店', type: 'カフェ', lat: 35.6627, lng: 139.6987, wifi: true,  power: true,  quiet: '普通', url: 'https://maps.google.com/?q=スターバックス+渋谷公園通り店' },
+  { id: 2,  name: '渋谷区立 中央図書館',           type: '図書館', lat: 35.6688, lng: 139.7005, wifi: true,  power: false, quiet: '静か', url: 'https://maps.google.com/?q=渋谷区立+中央図書館' },
+  { id: 3,  name: 'コメダ珈琲 渋谷神宮前店',       type: 'カフェ', lat: 35.6638, lng: 139.7055, wifi: true,  power: true,  quiet: '普通', url: 'https://maps.google.com/?q=コメダ珈琲+渋谷神宮前店' },
+  { id: 4,  name: '渋谷マークシティ 自習スペース', type: '自習室', lat: 35.6583, lng: 139.6981, wifi: true,  power: true,  quiet: '静か', url: 'https://maps.google.com/?q=渋谷マークシティ' },
+
+  // ── 新宿エリア ──
+  { id: 5,  name: 'スターバックス 新宿サザンテラス店', type: 'カフェ', lat: 35.6875, lng: 139.7007, wifi: true,  power: true,  quiet: '普通', url: 'https://maps.google.com/?q=スターバックス+新宿サザンテラス店' },
+  { id: 6,  name: '新宿区立 四谷図書館',             type: '図書館', lat: 35.6888, lng: 139.7125, wifi: true,  power: false, quiet: '静か', url: 'https://maps.google.com/?q=新宿区立+四谷図書館' },
+  { id: 7,  name: 'ルノアール 新宿三丁目店',         type: 'カフェ', lat: 35.6905, lng: 139.7042, wifi: true,  power: true,  quiet: '普通', url: 'https://maps.google.com/?q=ルノアール+新宿三丁目ビッグスビル店' },
+  { id: 8,  name: '勉強カフェ 新宿スタジオ',         type: '自習室', lat: 35.6880, lng: 139.6978, wifi: true,  power: true,  quiet: '静か', url: 'https://maps.google.com/?q=勉強カフェ+新宿スタジオ' },
+
+  // ── 東京駅エリア ──
+  { id: 9,  name: 'スターバックス 丸の内ビル店',     type: 'カフェ', lat: 35.6812, lng: 139.7638, wifi: true,  power: true,  quiet: '普通', url: 'https://maps.google.com/?q=スターバックス+丸の内ビル店' },
+  { id: 10, name: '千代田区立 日比谷図書文化館',     type: '図書館', lat: 35.6722, lng: 139.7558, wifi: true,  power: false, quiet: '静か', url: 'https://maps.google.com/?q=千代田区立+日比谷図書文化館' },
+  { id: 11, name: 'タリーズコーヒー 常盤橋タワー店', type: 'カフェ', lat: 35.6845, lng: 139.7695, wifi: true,  power: true,  quiet: '普通', url: 'https://maps.google.com/?q=タリーズコーヒー+常盤橋タワー店' },
+  { id: 12, name: '有楽町ノマド自習室',             type: '自習室', lat: 35.6745, lng: 139.7628, wifi: true,  power: true,  quiet: '静か', url: 'https://maps.google.com/?q=有楽町ノマド自習室' },
 ];
 
 // ───────────────────────────────────
@@ -987,13 +996,23 @@ function buildPopupHTML(spot, status) {
         ${spot.power ? '<span>🔌 電源</span>'   : ''}
         <span>🔇 ${spot.quiet}</span>
       </div>
-      <button class="popup-report-btn"
-        style="display:block;width:100%;padding:7px 0;border-radius:20px;border:none;
-               background:linear-gradient(135deg,#63b3ed,#b794f4);color:#0b0f1a;
-               font-size:0.8rem;font-weight:700;cursor:pointer;"
-        onclick="openModal(${spot.id})">
-        📢 今の状況を報告
-      </button>
+      <div style="display:flex;gap:6px;margin-top:10px;">
+        <button class="popup-report-btn"
+          style="flex:1;padding:7px 0;border-radius:20px;border:none;
+                 background:linear-gradient(135deg,#63b3ed,#b794f4);color:#0b0f1a;
+                 font-size:0.78rem;font-weight:700;cursor:pointer;"
+          onclick="openModal(${spot.id})">
+          📢 報告
+        </button>
+        <a href="${spot.url}" target="_blank"
+           style="flex:1;text-decoration:none;display:flex;align-items:center;justify-content:center;
+                  padding:7px 0;border-radius:20px;border:1px solid var(--border);
+                  color:var(--text);font-size:0.78rem;font-weight:600;background:rgba(255,255,255,0.05);transition:all var(--transition);"
+           onmouseover="this.style.borderColor='var(--accent1)';this.style.color='var(--accent1)'"
+           onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">
+          🌐 地図・詳細
+        </a>
+      </div>
     </div>
   `;
 }
@@ -1021,10 +1040,29 @@ function renderList() {
     return { ...spot, distance: dist };
   });
 
-  // 距離が近い順にソート
-  spotsWithDistance.sort((a, b) => a.distance - b.distance);
+  // 距離3km (3000m) 以内のスポットだけに絞り込む
+  const spotsFiltered = spotsWithDistance.filter(spot => spot.distance <= 3000);
 
-  spotsWithDistance.forEach(spot => {
+  // 距離が近い順にソート
+  spotsFiltered.sort((a, b) => a.distance - b.distance);
+
+  // もし3km以内にスポットが無い場合、ユーザーへのガイドを表示
+  if (spotsFiltered.length === 0) {
+    list.innerHTML = `
+      <div style="padding: 24px 16px; text-align: center; color: var(--muted); border: 1px dashed var(--border); border-radius: var(--radius); margin-top: 10px;">
+        <div style="font-size: 2rem; margin-bottom: 12px;">🔍</div>
+        <p style="font-size: 0.85rem; font-weight: 700; color: var(--text); margin-bottom: 6px;">この周辺にスポットがありません</p>
+        <p style="font-size: 0.75rem; line-height: 1.5;">
+          上の検索窓で<br>
+          <strong style="color: var(--accent1)">「渋谷」「新宿」「東京」</strong><br>
+          と検索して体験してみてください！
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  spotsFiltered.forEach(spot => {
     const status = getSpotStatus(spot.id);
     if (currentFilter !== 'all' && status !== currentFilter) return;
 
@@ -1054,9 +1092,19 @@ function renderList() {
         <span class="meta-item">🔇 ${spot.quiet}</span>
       </div>
       <div class="spot-updated">🕐 最終報告: ${lastReport}</div>
-      <button class="btn-report" onclick="openModal(${spot.id}); event.stopPropagation()">
-        📢 状況を報告
-      </button>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button class="btn-report" style="margin-top:0; flex:1; justify-content:center;" onclick="openModal(${spot.id}); event.stopPropagation()">
+          📢 報告する
+        </button>
+        <a href="${spot.url}" target="_blank" onclick="event.stopPropagation()"
+           style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;
+                  font-size:0.72rem; font-weight:700; padding:6px 12px; border-radius:20px;
+                  border:1px solid var(--border); background:rgba(255,255,255,0.05); color:var(--text); transition:all var(--transition);"
+           onmouseover="this.style.borderColor='var(--accent1)';this.style.color='var(--accent1)'"
+           onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">
+          🌐 詳細
+        </a>
+      </div>
     `;
     card.addEventListener('click', () => {
       flyToSpot(spot);
