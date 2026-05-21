@@ -143,6 +143,55 @@
     .btn-locate:hover { opacity: 0.88; transform: translateY(-1px); }
     .btn-locate:active { transform: scale(0.97); }
 
+    /* 手動検索ボックス */
+    .search-box {
+      display: flex;
+      align-items: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 30px;
+      padding: 2px 4px 2px 14px;
+      gap: 6px;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+
+    .search-box:focus-within {
+      border-color: var(--accent1);
+      box-shadow: 0 0 12px rgba(99,179,237,0.2);
+    }
+
+    .search-box input {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.82rem;
+      outline: none;
+      width: 140px;
+      transition: width var(--transition);
+    }
+
+    .search-box input:focus {
+      width: 200px;
+    }
+
+    .btn-search {
+      background: linear-gradient(135deg, rgba(99,179,237,0.1), rgba(183,148,244,0.1));
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .btn-search:hover {
+      background: rgba(99,179,237,0.2);
+      border-color: var(--accent1);
+    }
+
     /* ── メインレイアウト ── */
     .layout {
       position: relative;
@@ -682,6 +731,11 @@
 
     /* ── レスポンシブ ── */
     @media (max-width: 700px) {
+      header { flex-direction: column; gap: 12px; align-items: stretch; padding: 12px; }
+      .header-actions { justify-content: space-between; width: 100%; gap: 8px; }
+      .search-box { flex: 1; }
+      .search-box input { width: 100%; }
+      .search-box input:focus { width: 100%; }
       .layout { flex-direction: column-reverse; height: auto; }
       .sidebar { width: 100%; height: 45vh; border-right: none; border-top: 1px solid var(--border); }
       #map { height: 55vw; min-height: 240px; }
@@ -701,8 +755,12 @@
       </div>
     </div>
     <div class="header-actions">
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="場所・駅名を入力..." onkeydown="if(event.key==='Enter') searchLocation()">
+        <button class="btn-search" onclick="searchLocation()">🔍 検索</button>
+      </div>
       <button class="btn-locate" id="btn-locate" onclick="locateMe()">
-        🎯 現在地を取得
+        🎯 GPS現在地
       </button>
     </div>
   </header>
@@ -1009,8 +1067,24 @@ function filterSpots(filter) {
   renderList();
 }
 
+let userLocationMarker = null;
+
+// ── 現在地ピン（手動・GPS共通）の描画更新 ──
+function updateUserLocationMarker(lat, lng, label) {
+  if (userLocationMarker) {
+    map.removeLayer(userLocationMarker);
+  }
+  userLocationMarker = L.circleMarker([lat, lng], {
+    radius: 10,
+    color: '#63b3ed',
+    fillColor: '#63b3ed',
+    fillOpacity: 0.35,
+    weight: 2,
+  }).addTo(map).bindPopup(`📍 ${label}`).openPopup();
+}
+
 // ──────────────────────────────
-// 現在地取得
+// 現在地取得 (GPS)
 // ──────────────────────────────
 function locateMe() {
   const btn = document.getElementById('btn-locate');
@@ -1019,7 +1093,7 @@ function locateMe() {
 
   if (!navigator.geolocation) {
     showToast('⚠️ お使いのブラウザは位置情報をサポートしていません');
-    btn.textContent = '🎯 現在地を取得';
+    btn.textContent = '🎯 GPS現在地';
     btn.disabled = false;
     return;
   }
@@ -1028,22 +1102,60 @@ function locateMe() {
     pos => {
       const { latitude, longitude } = pos.coords;
       map.flyTo([latitude, longitude], 15, { duration: 1 });
-      L.circleMarker([latitude, longitude], {
-        radius: 10,
-        color: '#63b3ed',
-        fillColor: '#63b3ed',
-        fillOpacity: 0.35,
-        weight: 2,
-      }).addTo(map).bindPopup('📍 現在地').openPopup();
-      btn.textContent = '🎯 現在地を取得';
+      updateUserLocationMarker(latitude, longitude, '現在地 (GPS)');
+      btn.textContent = '🎯 GPS現在地';
       btn.disabled = false;
     },
     err => {
       showToast('⚠️ 位置情報の取得に失敗しました');
-      btn.textContent = '🎯 現在地を取得';
+      btn.textContent = '🎯 GPS現在地';
       btn.disabled = false;
     }
   );
+}
+
+// ──────────────────────────────
+// 場所・駅名の手動検索
+// ──────────────────────────────
+function searchLocation() {
+  const input = document.getElementById('search-input');
+  const query = input.value.trim();
+  if (!query) {
+    showToast('⚠️ 検索する場所を入力してください');
+    return;
+  }
+
+  const btn = document.querySelector('.btn-search');
+  const originalText = btn.textContent;
+  btn.textContent = '⏳';
+  btn.disabled = true;
+
+  // OpenStreetMapの無料検索API (Nominatim) を利用
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
+
+  fetch(url)
+    .then(res => res.json())
+    .then(data => {
+      if (data && data.length > 0) {
+        const result = data[0];
+        const lat = parseFloat(result.lat);
+        const lng = parseFloat(result.lon);
+        
+        map.flyTo([lat, lng], 15, { duration: 1 });
+        updateUserLocationMarker(lat, lng, query);
+        showToast(`📍 「${query}」に移動しました`);
+      } else {
+        showToast('⚠️ 場所が見つかりませんでした。別の言葉で試してください。');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      showToast('⚠️ 検索中にエラーが発生しました');
+    })
+    .finally(() => {
+      btn.textContent = originalText;
+      btn.disabled = false;
+    });
 }
 
 // ──────────────────────────────
