@@ -880,6 +880,19 @@ let modalSpotId     = null;
 let selectedStatus  = null;
 let markers         = {};
 let map             = null;
+let currentLatLng   = { lat: 35.6612, lng: 139.7010 }; // 初期現在地（渋谷）
+
+// ── ハバーサインの公式で2点間の距離(m)を計算 ──
+function getDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371e3; // 地球の半径 (メートル)
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 // ── 有効報告（30分以内）取得 ──
 function getActiveReports() {
@@ -1002,12 +1015,26 @@ function renderList() {
   document.getElementById('stat-crowded').textContent = counts.crowded;
   document.getElementById('stat-reports').textContent = active.length;
 
-  SPOTS.forEach(spot => {
+  // 各スポットに現在地からの距離を付与
+  const spotsWithDistance = SPOTS.map(spot => {
+    const dist = getDistance(currentLatLng.lat, currentLatLng.lng, spot.lat, spot.lng);
+    return { ...spot, distance: dist };
+  });
+
+  // 距離が近い順にソート
+  spotsWithDistance.sort((a, b) => a.distance - b.distance);
+
+  spotsWithDistance.forEach(spot => {
     const status = getSpotStatus(spot.id);
     if (currentFilter !== 'all' && status !== currentFilter) return;
 
     const spotReports = active.filter(r => r.spotId === spot.id);
     const lastReport  = spotReports.length ? timeAgo(spotReports[spotReports.length-1].timestamp) : 'サンプル';
+
+    // 距離の表示フォーマット（1km未満はm、1km以上はkm表示）
+    const distText = spot.distance < 1000
+      ? `${Math.round(spot.distance)}m`
+      : `${(spot.distance / 1000).toFixed(1)}km`;
 
     const card = document.createElement('div');
     card.className   = 'spot-card';
@@ -1017,7 +1044,7 @@ function renderList() {
       <div class="spot-top">
         <div>
           <div class="spot-name">${spot.name}</div>
-          <div class="spot-type">${spot.type}</div>
+          <div class="spot-type">${spot.type} <span style="color:var(--accent1);margin-left:6px;font-weight:600;">🚗 ${distText}</span></div>
         </div>
         <span class="status-badge ${status}">${statusLabel(status)}</span>
       </div>
@@ -1071,6 +1098,8 @@ let userLocationMarker = null;
 
 // ── 現在地ピン（手動・GPS共通）の描画更新 ──
 function updateUserLocationMarker(lat, lng, label) {
+  currentLatLng = { lat, lng }; // 現在地情報を更新
+  
   if (userLocationMarker) {
     map.removeLayer(userLocationMarker);
   }
@@ -1081,6 +1110,8 @@ function updateUserLocationMarker(lat, lng, label) {
     fillOpacity: 0.35,
     weight: 2,
   }).addTo(map).bindPopup(`📍 ${label}`).openPopup();
+
+  renderList(); // リストの距離ソートと描画をトリガー
 }
 
 // ──────────────────────────────
