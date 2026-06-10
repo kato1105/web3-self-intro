@@ -10,7 +10,7 @@
 - **プロジェクト名:** どこすわ？ v3
 - **提出パターン:** A-1 プロダクト系
 - **テーマ:** Web3 トークン報酬と AI 予測で混雑レポートを進化させる
-- **デプロイURL:** [https://lecture5-zeta.vercel.app](https://lecture5-zeta.vercel.app/)
+- **デプロイURL:** [https://lecture5-zeta.vercel.app/lectures/lecture7/indexv3.html](https://lecture5-zeta.vercel.app/lectures/lecture7/indexv3.html)
 - **プロトタイプURL:** `lectures/lecture7/indexv3.html`
 - **最終発表会:** 7/16 CHIBATECH PROTOTYPE に向けた計画をこのREADMEにまとめています。
 
