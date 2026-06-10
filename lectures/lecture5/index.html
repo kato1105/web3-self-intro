@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="どこすわ？ — 周辺のカフェ・図書館・自習室の混雑状況をリアルタイムで確認できるWebアプリ。外出先で作業場所をすぐ見つけよう。" />
-  <title>どこすわ？ — 作業場所の混雑マップ</title>
+  <meta name="description" content="どこすわ？ v3 — 周辺のカフェ・図書館・自習室の混雑状況をリアルタイムで確認できるWebアプリ。Web3トークン報酬とAI予測を体験しよう。" />
+  <title>どこすわ？ v3 — 作業場所の混雑マップ</title>
 
   <!-- Leaflet.js -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -142,6 +142,53 @@
 
     .btn-locate:hover { opacity: 0.88; transform: translateY(-1px); }
     .btn-locate:active { transform: scale(0.97); }
+
+    .btn-wallet {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, #f6ad55, #63b3ed);
+      color: #0b0f1a;
+      font-weight: 700;
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      padding: 8px 16px;
+      border-radius: 30px;
+      border: none;
+      cursor: pointer;
+      transition: opacity var(--transition), transform var(--transition);
+      white-space: nowrap;
+    }
+
+    .btn-wallet:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn-wallet:active { transform: scale(0.97); }
+
+    .ai-summary {
+      margin: 16px 16px 12px;
+      padding: 14px 16px;
+      background: rgba(99,179,237,0.08);
+      border: 1px solid rgba(99,179,237,0.16);
+      border-radius: 18px;
+      color: var(--text);
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+
+    .ai-title {
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--accent1);
+    }
+
+    .spot-ai {
+      margin-top: 8px;
+      font-size: 0.78rem;
+      color: #cbd5e1;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(148,163,184,0.18);
+      padding: 10px 12px;
+      border-radius: 18px;
+    }
 
     /* 手動検索ボックス */
     .search-box {
@@ -779,11 +826,14 @@
     <div class="logo">
       <div class="logo-icon">📍</div>
       <div class="logo-text">
-        <h1>どこすわ？</h1>
-        <small>作業場所の混雑マップ v1</small>
+        <h1>どこすわ？ v3</h1>
+        <small>作業場所の混雑マップ v3</small>
       </div>
     </div>
     <div class="header-actions">
+      <button class="btn-wallet" id="btn-wallet" onclick="toggleWalletConnection()">
+        🔐 ウォレット接続
+      </button>
       <div class="search-box">
         <input type="text" id="search-input" placeholder="場所・駅名を入力..." onkeydown="if(event.key==='Enter') searchLocation()">
         <button class="btn-search" onclick="searchLocation()">🔍 検索</button>
@@ -815,6 +865,15 @@
       <span class="stat-num" id="stat-reports">0</span>
       <span>件の報告</span>
     </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item wallet-stat">
+      <span class="stat-num" id="join-balance">0</span>
+      <span>JOIN</span>
+    </div>
+    <div class="stat-item wallet-stat">
+      <span class="stat-num" id="ichigo-balance">0</span>
+      <span>ICHIGO</span>
+    </div>
   </div>
 
   <!-- メインレイアウト -->
@@ -830,6 +889,10 @@
           <button class="filter-btn" data-filter="normal" onclick="filterSpots('normal')">🟡 普通</button>
           <button class="filter-btn" data-filter="crowded" onclick="filterSpots('crowded')">🔴 混雑</button>
         </div>
+      </div>
+      <div class="ai-summary" id="ai-summary">
+        <div class="ai-title">🤖 AIおすすめ</div>
+        <div class="ai-text" id="ai-text">混雑予測をもとに最適なスポットを提案します。</div>
       </div>
       <div class="spot-list" id="spot-list"></div>
     </aside>
@@ -913,6 +976,13 @@ const SPOTS = [
 // ───────────────────────────────────
 const STORAGE_KEY = 'dokosua_reports';
 let reports   = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+const WALLET_KEY = 'dokosua_wallet';
+let walletState = JSON.parse(localStorage.getItem(WALLET_KEY) || JSON.stringify({
+  isConnected: false,
+  address: '',
+  joinBalance: 0,
+  ichigoBalance: 0,
+}));
 let currentFilter   = 'all';
 let modalSpotId     = null;
 let selectedStatus  = null;
@@ -920,6 +990,21 @@ let markers         = {};
 let map             = null;
 let currentLatLng   = { lat: 35.6612, lng: 139.7010 }; // 初期現在地（渋谷）
 
+const AI_PREDICTIONS = [
+  '午後から混雑の可能性が高い',
+  '夕方は穴場になるかも',
+  '今は比較的落ち着いています',
+  'Wi-Fiが使いやすそうです',
+  'テレワーク向きの静かな席が狙い目です',
+  '次の1時間は混雑しやすい予測です',
+];
+
+const AI_SUMMARY = [
+  '今週は午後に穴場スポットが増える予測です。',
+  '混雑危険度が高まる時間帯があります。早めの出発がおすすめ。',
+  'トークン報酬で投稿動機を高め、正確な情報共有を狙う設計です。',
+  'AI予測とユーザー投稿を組み合わせた安心感を目指します。',
+];
 // ── ハバーサインの公式で2点間の距離(m)を計算 ──
 function getDistance(lat1, lng1, lat2, lng2) {
   const R = 6371e3; // 地球の半径 (メートル)
@@ -952,6 +1037,56 @@ function getSpotStatus(spotId) {
 // ── ステータスラベル取得 ──
 function statusLabel(s) {
   return { free:'🟢 空きあり', normal:'🟡 普通', crowded:'🔴 混雑' }[s] || '—';
+}
+
+function persistWalletState() {
+  localStorage.setItem(WALLET_KEY, JSON.stringify(walletState));
+}
+
+function renderWalletState() {
+  const btn = document.getElementById('btn-wallet');
+  if (!btn) return;
+
+  if (walletState.isConnected) {
+    btn.textContent = `✅ 接続済み ${walletState.address.slice(0,6)}...${walletState.address.slice(-4)}`;
+    btn.style.background = 'linear-gradient(135deg,#68d391,#63b3ed)';
+  } else {
+    btn.textContent = '🔐 ウォレット接続';
+    btn.style.background = 'linear-gradient(135deg,#f6ad55,#63b3ed)';
+  }
+
+  document.getElementById('join-balance').textContent = walletState.joinBalance;
+  document.getElementById('ichigo-balance').textContent = walletState.ichigoBalance;
+}
+
+function toggleWalletConnection() {
+  if (walletState.isConnected) {
+    showToast('✅ すでにウォレット接続済みです');
+    return;
+  }
+
+  walletState = {
+    isConnected: true,
+    address: `0x${Math.random().toString(16).slice(2, 10)}${Math.random().toString(16).slice(2, 10)}`,
+    joinBalance: 120,
+    ichigoBalance: 320,
+  };
+  persistWalletState();
+  renderWalletState();
+  showToast('✅ ウォレット接続に成功しました');
+}
+
+function getAIPrediction(spotId) {
+  return AI_PREDICTIONS[spotId % AI_PREDICTIONS.length];
+}
+
+function getAIHeadline() {
+  return AI_SUMMARY[Math.floor(Date.now() / 60000) % AI_SUMMARY.length];
+}
+
+function updateAIRecommendation() {
+  const text = document.getElementById('ai-text');
+  if (text) text.textContent = getAIHeadline();
 }
 
 // ── 経過時間表示 ──
@@ -1020,6 +1155,7 @@ function buildPopupHTML(spot, status) {
         <span style="font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:20px;${badgeStyle}">${statusLabel(status)}</span>
       </div>
       <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:10px;">最終報告: ${lastReport}</div>
+      <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:10px;">🤖 AI予測: ${getAIPrediction(spot.id)}</div>
       <div style="display:flex;gap:8px;font-size:0.72rem;color:#94a3b8;margin-bottom:10px;">
         ${spot.wifi  ? '<span>📶 Wi-Fi</span>'  : ''}
         ${spot.power ? '<span>🔌 電源</span>'   : ''}
@@ -1062,6 +1198,7 @@ function renderList() {
   document.getElementById('stat-normal').textContent  = counts.normal;
   document.getElementById('stat-crowded').textContent = counts.crowded;
   document.getElementById('stat-reports').textContent = active.length;
+  updateAIRecommendation();
 
   // 各スポットに現在地からの距離を付与
   const spotsWithDistance = SPOTS.map(spot => {
@@ -1120,6 +1257,7 @@ function renderList() {
         ${spot.power ? '<span class="meta-item">🔌 電源</span>'   : ''}
         <span class="meta-item">🔇 ${spot.quiet}</span>
       </div>
+      <div class="spot-ai">🤖 AI予測: ${getAIPrediction(spot.id)}</div>
       <div class="spot-updated">🕐 最終報告: ${lastReport}</div>
       <div style="display:flex; gap:8px; margin-top:10px;">
         <button class="btn-report" style="margin-top:0; flex:1; justify-content:center;" onclick="openModal(${spot.id}); event.stopPropagation()">
@@ -1307,22 +1445,31 @@ function submitReport() {
   if (!selectedStatus || !modalSpotId) return;
 
   const comment = document.getElementById('modal-comment').value.trim();
+  const reward = walletState.isConnected ? 10 : 0;
   const report = {
     id:        Date.now(),
     spotId:    modalSpotId,
     status:    selectedStatus,
     comment,
     timestamp: Date.now(),
+    reward,
   };
 
   reports.push(report);
+  if (walletState.isConnected) {
+    walletState.joinBalance += reward;
+    persistWalletState();
+  }
   // 古い報告を整理（1000件まで）
   if (reports.length > 1000) reports = reports.slice(-1000);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
 
   closeModalFn();
   refreshAll();
-  showToast('✅ 報告ありがとう！情報が更新されました 🎉');
+  const toastMsg = walletState.isConnected
+    ? `✅ 報告ありがとう！+${reward} JOIN 獲得！`
+    : '✅ 報告ありがとう！ウォレット接続でJOINを獲得できます';
+  showToast(toastMsg);
 }
 
 // ──────────────────────────────
@@ -1339,6 +1486,7 @@ function refreshAll() {
     }
   });
   renderList();
+  renderWalletState();
 }
 
 // ──────────────────────────────
@@ -1370,6 +1518,7 @@ function cleanReports() {
 window.addEventListener('DOMContentLoaded', () => {
   initMap();
   renderList();
+  renderWalletState();
   setInterval(cleanReports, 5 * 60 * 1000); // 5分ごとにクリーン
   setInterval(() => renderList(), 60 * 1000); // 1分ごとに「何分前」を更新
 });
