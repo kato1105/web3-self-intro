@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="どこすわ？ — 周辺のカフェ・図書館・自習室の混雑状況をリアルタイムで確認できるWebアプリ。外出先で作業場所をすぐ見つけよう。" />
+  <title>どこすわ？ — 作業場所の混雑マップ</title>
+
+  <!-- Leaflet.js -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0b0f1a;
+      --surface:   #111827;
+      --card:      #1a2235;
+      --border:    rgba(99,179,237,0.18);
+      --accent1:   #63b3ed;
+      --accent2:   #b794f4;
+      --accent3:   #68d391;
+      --accent4:   #f6ad55;
+      --danger:    #fc8181;
+      --text:      #e2e8f0;
+      --muted:     #94a3b8;
+      --radius:    14px;
+      --transition: 0.28s cubic-bezier(0.4,0,0.2,1);
+
+      /* 混雑カラー */
+      --free:    #68d391;
+      --normal:  #f6ad55;
+      --crowded: #fc8181;
+    }
+
+    html { scroll-behavior: smooth; font-size: 15px; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Noto Sans JP', 'Inter', sans-serif;
+      line-height: 1.7;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── 背景装飾 ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 40% at 5% 5%, rgba(99,179,237,0.09) 0%, transparent 65%),
+        radial-gradient(ellipse 55% 45% at 95% 90%, rgba(183,148,244,0.09) 0%, transparent 65%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── ヘッダー ── */
+    header {
+      position: relative;
+      z-index: 10;
+      background: rgba(11,15,26,0.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent1), var(--accent2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      box-shadow: 0 0 20px rgba(99,179,237,0.3);
+    }
+
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.2;
+    }
+
+    .logo-text h1 {
+      font-size: 1.2rem;
+      font-weight: 900;
+      letter-spacing: 0.02em;
+      background: linear-gradient(90deg, var(--accent1), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .logo-text small {
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-locate {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, var(--accent1), var(--accent2));
+      color: #0b0f1a;
+      font-weight: 700;
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      padding: 8px 16px;
+      border-radius: 30px;
+      border: none;
+      cursor: pointer;
+      transition: opacity var(--transition), transform var(--transition);
+      white-space: nowrap;
+    }
+
+    .btn-locate:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn-locate:active { transform: scale(0.97); }
+
+    /* 手動検索ボックス */
+    .search-box {
+      display: flex;
+      align-items: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 30px;
+      padding: 2px 4px 2px 14px;
+      gap: 6px;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+
+    .search-box:focus-within {
+      border-color: var(--accent1);
+      box-shadow: 0 0 12px rgba(99,179,237,0.2);
+    }
+
+    .search-box input {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.82rem;
+      outline: none;
+      width: 140px;
+      transition: width var(--transition);
+    }
+
+    .search-box input:focus {
+      width: 200px;
+    }
+
+    .btn-search {
+      background: linear-gradient(135deg, rgba(99,179,237,0.1), rgba(183,148,244,0.1));
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .btn-search:hover {
+      background: rgba(99,179,237,0.2);
+      border-color: var(--accent1);
+    }
+
+    /* ── メインレイアウト ── */
+    .layout {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      height: calc(100vh - 66px - 38px); /* ヘッダーと統計バーを引いた残りの高さ */
+      overflow: hidden; /* ブラウザ全体のスクロールを禁止し、アプリ風にする */
+    }
+
+    /* ── サイドパネル ── */
+    .sidebar {
+      width: 340px;
+      flex-shrink: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-header h2 {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    /* フィルター */
+    .filter-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .filter-btn.active, .filter-btn:hover {
+      color: var(--text);
+      border-color: var(--accent1);
+      background: rgba(99,179,237,0.12);
+    }
+
+    .filter-btn[data-filter="free"].active    { border-color: var(--free);    background: rgba(104,211,145,0.12); color: var(--free); }
+    .filter-btn[data-filter="normal"].active  { border-color: var(--normal);  background: rgba(246,173,85,0.12);  color: var(--normal); }
+    .filter-btn[data-filter="crowded"].active { border-color: var(--crowded); background: rgba(252,129,129,0.12); color: var(--crowded); }
+
+    /* スポットリスト */
+    .spot-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .spot-list::-webkit-scrollbar { width: 4px; }
+    .spot-list::-webkit-scrollbar-track { background: transparent; }
+    .spot-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .spot-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: all var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .spot-card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      border-radius: 3px 0 0 3px;
+      background: var(--free);
+      transition: background var(--transition);
+    }
+
+    .spot-card[data-status="normal"]::before  { background: var(--normal); }
+    .spot-card[data-status="crowded"]::before { background: var(--crowded); }
+
+    .spot-card:hover, .spot-card.active {
+      border-color: rgba(99,179,237,0.4);
+      transform: translateX(4px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+
+    .spot-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .spot-name {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.3;
+    }
+
+    .spot-type {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .status-badge.free    { background: rgba(104,211,145,0.15); color: var(--free);    border: 1px solid rgba(104,211,145,0.3); }
+    .status-badge.normal  { background: rgba(246,173,85,0.15);  color: var(--normal);  border: 1px solid rgba(246,173,85,0.3); }
+    .status-badge.crowded { background: rgba(252,129,129,0.15); color: var(--crowded); border: 1px solid rgba(252,129,129,0.3); }
+
+    .spot-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      flex-wrap: wrap;
+    }
+
+    .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .spot-updated {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    /* 投稿ボタン */
+    .btn-report {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--accent1);
+      cursor: pointer;
+      transition: all var(--transition);
+      margin-top: 8px;
+    }
+
+    .btn-report:hover {
+      background: rgba(99,179,237,0.12);
+      border-color: var(--accent1);
+    }
+
+    /* ── マップコンテナ ── */
+    .map-container {
+      position: relative;
+      flex: 1;
+      height: 100%;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* Leaflet overrides for dark theme */
+    .leaflet-container { background: #0b0f1a !important; }
+    .leaflet-tile { filter: brightness(0.7) saturate(0.6) hue-rotate(180deg) invert(1); }
+    .leaflet-control-zoom a {
+      background: var(--card) !important;
+      color: var(--text) !important;
+      border-color: var(--border) !important;
+    }
+    .leaflet-control-zoom a:hover { background: var(--surface) !important; }
+    .leaflet-control-attribution { background: rgba(11,15,26,0.7) !important; color: var(--muted) !important; }
+    .leaflet-control-attribution a { color: var(--accent1) !important; }
+
+    /* カスタムピン */
+    .map-pin {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      border: 2px solid white;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+      transition: transform 0.2s;
+    }
+
+    .map-pin .pin-icon {
+      transform: rotate(45deg);
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .pin-free    { background: var(--free); }
+    .pin-normal  { background: var(--normal); }
+    .pin-crowded { background: var(--crowded); }
+
+    /* ── モーダル（投稿フォーム）── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(6px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition);
+    }
+
+    .modal-overlay.show {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px 28px 24px;
+      width: min(420px, 92vw);
+      transform: translateY(20px) scale(0.97);
+      transition: transform var(--transition);
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    }
+
+    .modal-overlay.show .modal {
+      transform: translateY(0) scale(1);
+    }
+
+    .modal-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .modal-spot-name {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+
+    .status-choices {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .status-choice {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 14px 10px;
+      border-radius: 12px;
+      border: 2px solid var(--border);
+      background: var(--surface);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .status-choice:hover { border-color: rgba(99,179,237,0.4); }
+
+    .status-choice.selected[data-value="free"]    { border-color: var(--free);    background: rgba(104,211,145,0.12); }
+    .status-choice.selected[data-value="normal"]  { border-color: var(--normal);  background: rgba(246,173,85,0.12); }
+    .status-choice.selected[data-value="crowded"] { border-color: var(--crowded); background: rgba(252,129,129,0.12); }
+
+    .status-choice-icon { font-size: 1.6rem; }
+    .status-choice-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .status-choice[data-value="free"]    .status-choice-label { color: var(--free); }
+    .status-choice[data-value="normal"]  .status-choice-label { color: var(--normal); }
+    .status-choice[data-value="crowded"] .status-choice-label { color: var(--crowded); }
+
+    .status-choice-sub {
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.3;
+    }
+
+    /* コメント入力 */
+    .modal label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+
+    .modal textarea {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.88rem;
+      padding: 10px 14px;
+      resize: none;
+      height: 72px;
+      margin-bottom: 16px;
+      transition: border-color var(--transition);
+      outline: none;
+    }
+
+    .modal textarea:focus { border-color: var(--accent1); }
+    .modal textarea::placeholder { color: var(--muted); }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .btn-cancel {
+      padding: 9px 20px;
+      border-radius: 30px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .btn-cancel:hover { border-color: var(--accent1); color: var(--accent1); }
+
+    .btn-submit {
+      padding: 9px 22px;
+      border-radius: 30px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent1), var(--accent2));
+      color: #0b0f1a;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .btn-submit:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn-submit:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+    /* ── ポップアップ (Leaflet) ── */
+    .leaflet-popup-content-wrapper {
+      background: var(--card) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 12px !important;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;
+      color: var(--text) !important;
+    }
+
+    .leaflet-popup-tip { background: var(--card) !important; }
+    .leaflet-popup-close-button { color: var(--muted) !important; }
+
+    .popup-inner { padding: 4px 2px; min-width: 180px; }
+    .popup-name { font-size: 0.95rem; font-weight: 700; margin-bottom: 4px; }
+    .popup-type { font-size: 0.72rem; color: var(--muted); margin-bottom: 10px; }
+
+    .popup-status-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .popup-report-btn {
+      display: block;
+      width: 100%;
+      margin-top: 10px;
+      padding: 7px 0;
+      border-radius: 20px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent1), var(--accent2));
+      color: #0b0f1a;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity var(--transition);
+    }
+
+    .popup-report-btn:hover { opacity: 0.85; }
+
+    /* ── トースト通知 ── */
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--card);
+      border: 1px solid var(--accent3);
+      border-radius: 30px;
+      padding: 12px 24px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--accent3);
+      z-index: 2000;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+      transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+      white-space: nowrap;
+    }
+
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ── 凡例 ── */
+    .legend {
+      position: absolute;
+      bottom: 28px;
+      right: 12px;
+      z-index: 400;
+      background: rgba(17,24,39,0.88);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+
+    .legend-title {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .legend-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── 統計バー ── */
+    .stats-bar {
+      background: rgba(17,24,39,0.88);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 18px;
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      font-size: 0.78rem;
+    }
+
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+    }
+
+    .stat-num {
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    .stat-item.free-stat    .stat-num { color: var(--free); }
+    .stat-item.normal-stat  .stat-num { color: var(--normal); }
+    .stat-item.crowded-stat .stat-num { color: var(--crowded); }
+
+    .stat-divider {
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+    }
+
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--accent3);
+      letter-spacing: 0.08em;
+    }
+
+    .live-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--accent3);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(0.7); }
+    }
+
+    /* ── レスポンシブ ── */
+    @media (max-width: 700px) {
+      header { flex-direction: column; gap: 8px; align-items: stretch; padding: 10px 16px; }
+      .header-actions { justify-content: space-between; width: 100%; gap: 8px; }
+      .search-box { flex: 1; }
+      .search-box input { width: 100%; }
+      .search-box input:focus { width: 100%; }
+      
+      /* レイアウトを縦分割に固定 */
+      .layout { 
+        flex-direction: column-reverse; 
+        height: calc(100vh - 90px - 38px); /* スマホ用ヘッダー高に合わせて調整 */
+      }
+      
+      .sidebar { 
+        width: 100%; 
+        height: 50%; /* 画面の下半分を周辺スポットに */
+        border-right: none; 
+        border-top: 1px solid var(--border); 
+      }
+      
+      .map-container {
+        width: 100%;
+        height: 50%; /* 画面の上半分をマップに */
+      }
+      
+      .legend { 
+        bottom: 12px; 
+        right: 12px;
+        padding: 6px 10px;
+        font-size: 0.7rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ヘッダー -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">📍</div>
+      <div class="logo-text">
+        <h1>どこすわ？</h1>
+        <small>作業場所の混雑マップ v1</small>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="場所・駅名を入力..." onkeydown="if(event.key==='Enter') searchLocation()">
+        <button class="btn-search" onclick="searchLocation()">🔍 検索</button>
+      </div>
+      <button class="btn-locate" id="btn-locate" onclick="locateMe()">
+        🎯 GPS現在地
+      </button>
+    </div>
+  </header>
+
+  <!-- 統計バー -->
+  <div class="stats-bar">
+    <div class="live-badge"><span class="live-dot"></span>LIVE</div>
+    <div class="stat-divider"></div>
+    <div class="stat-item free-stat">
+      <span class="stat-num" id="stat-free">0</span>
+      <span>空きあり</span>
+    </div>
+    <div class="stat-item normal-stat">
+      <span class="stat-num" id="stat-normal">0</span>
+      <span>普通</span>
+    </div>
+    <div class="stat-item crowded-stat">
+      <span class="stat-num" id="stat-crowded">0</span>
+      <span>混雑</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <span class="stat-num" id="stat-reports">0</span>
+      <span>件の報告</span>
+    </div>
+  </div>
+
+  <!-- メインレイアウト -->
+  <div class="layout">
+
+    <!-- サイドバー -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>📋 周辺スポット</h2>
+        <div class="filter-row">
+          <button class="filter-btn active" data-filter="all" onclick="filterSpots('all')">すべて</button>
+          <button class="filter-btn" data-filter="free" onclick="filterSpots('free')">🟢 空きあり</button>
+          <button class="filter-btn" data-filter="normal" onclick="filterSpots('normal')">🟡 普通</button>
+          <button class="filter-btn" data-filter="crowded" onclick="filterSpots('crowded')">🔴 混雑</button>
+        </div>
+      </div>
+      <div class="spot-list" id="spot-list"></div>
+    </aside>
+
+    <!-- 地図 -->
+    <div class="map-container">
+      <div id="map"></div>
+      <!-- 凡例 -->
+      <div class="legend">
+        <div class="legend-title">混雑状況</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--free)"></span>空きあり</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--normal)"></span>普通</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--crowded)"></span>混雑</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 投稿モーダル -->
+  <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-title" id="modal-title">📢 今の混雑状況を報告</div>
+      <div class="modal-spot-name" id="modal-spot-name"></div>
+
+      <div class="status-choices">
+        <label class="status-choice" data-value="free" id="choice-free" onclick="selectStatus('free')">
+          <span class="status-choice-icon">😊</span>
+          <span class="status-choice-label">空きあり</span>
+          <span class="status-choice-sub">席が十分<br>ある</span>
+        </label>
+        <label class="status-choice" data-value="normal" id="choice-normal" onclick="selectStatus('normal')">
+          <span class="status-choice-icon">😐</span>
+          <span class="status-choice-label">普通</span>
+          <span class="status-choice-sub">席は<br>埋まり気味</span>
+        </label>
+        <label class="status-choice" data-value="crowded" id="choice-crowded" onclick="selectStatus('crowded')">
+          <span class="status-choice-icon">😓</span>
+          <span class="status-choice-label">混雑</span>
+          <span class="status-choice-sub">ほぼ<br>満席</span>
+        </label>
+      </div>
+
+      <label for="modal-comment">コメント（任意）</label>
+      <textarea id="modal-comment" placeholder="例：2Fの席は空いてた、電源使えた など…" maxlength="80"></textarea>
+
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModalFn()">キャンセル</button>
+        <button class="btn-submit" id="btn-submit" onclick="submitReport()" disabled>投稿する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- トースト -->
+  <div class="toast" id="toast">✅ 報告ありがとう！情報が更新されました</div>
+
+<script>
+// ───────────────────────────────────
+// サンプルスポットデータ（東京主要エリア：渋谷・新宿・東京）
+// ───────────────────────────────────
+const SPOTS = [
+  // ── 渋谷エリア ──
+  { id: 1,  name: 'スターバックス 渋谷公園通り店', type: 'カフェ', lat: 35.6627, lng: 139.6987, wifi: true,  power: true,  quiet: '普通', url: 'https://maps.google.com/?q=スターバックス+渋谷公園通り店' },
+  { id: 2,  name: '渋谷区立 中央図書館',           type: '図書館', lat: 35.6688, lng: 139.7005, wifi: true,  power: false, quiet: '静か', url: 'https://maps.google.com/?q=渋谷区立+中央図書館' },
+  { id: 3,  name: 'コメダ珈琲 渋谷神宮前店',       type: 'カフェ', lat: 35.6638, lng: 139.7055, wifi: true,  power: true,  quiet: '普通', url: 'https://maps.google.com/?q=コメダ珈琲+渋谷神宮前店' },
+  { id: 4,  name: '渋谷マークシティ 自習スペース', type: '自習室', lat: 35.6583, lng: 139.6981, wifi: true,  power: true,  quiet: '静か', url: 'https://maps.google.com/?q=渋谷マークシティ' },
+
+  // ── 新宿エリア ──
+  { id: 5,  name: 'スターバックス 新宿サザンテラス店', type: 'カフェ', lat: 35.6875, lng: 139.7007, wifi: true,  power: true,  quiet: '普通', url: 'https://maps.google.com/?q=スターバックス+新宿サザンテラス店' },
+  { id: 6,  name: '新宿区立 四谷図書館',             type: '図書館', lat: 35.6888, lng: 139.7125, wifi: true,  power: false, quiet: '静か', url: 'https://maps.google.com/?q=新宿区立+四谷図書館' },
+  { id: 7,  name: 'ルノアール 新宿三丁目店',         type: 'カフェ', lat: 35.6905, lng: 139.7042, wifi: true,  power: true,  quiet: '普通', url: 'https://maps.google.com/?q=ルノアール+新宿三丁目ビッグスビル店' },
+  { id: 8,  name: '勉強カフェ 新宿スタジオ',         type: '自習室', lat: 35.6880, lng: 139.6978, wifi: true,  power: true,  quiet: '静か', url: 'https://maps.google.com/?q=勉強カフェ+新宿スタジオ' },
+
+  // ── 東京駅エリア ──
+  { id: 9,  name: 'スターバックス 丸の内ビル店',     type: 'カフェ', lat: 35.6812, lng: 139.7638, wifi: true,  power: true,  quiet: '普通', url: 'https://maps.google.com/?q=スターバックス+丸の内ビル店' },
+  { id: 10, name: '千代田区立 日比谷図書文化館',     type: '図書館', lat: 35.6722, lng: 139.7558, wifi: true,  power: false, quiet: '静か', url: 'https://maps.google.com/?q=千代田区立+日比谷図書文化館' },
+  { id: 11, name: 'タリーズコーヒー 常盤橋タワー店', type: 'カフェ', lat: 35.6845, lng: 139.7695, wifi: true,  power: true,  quiet: '普通', url: 'https://maps.google.com/?q=タリーズコーヒー+常盤橋タワー店' },
+  { id: 12, name: '有楽町ノマド自習室',             type: '自習室', lat: 35.6745, lng: 139.7628, wifi: true,  power: true,  quiet: '静か', url: 'https://maps.google.com/?q=有楽町ノマド自習室' },
+];
+
+// ───────────────────────────────────
+// 状態管理
+// ───────────────────────────────────
+const STORAGE_KEY = 'dokosua_reports';
+let reports   = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+let currentFilter   = 'all';
+let modalSpotId     = null;
+let selectedStatus  = null;
+let markers         = {};
+let map             = null;
+let currentLatLng   = { lat: 35.6612, lng: 139.7010 }; // 初期現在地（渋谷）
+
+// ── ハバーサインの公式で2点間の距離(m)を計算 ──
+function getDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371e3; // 地球の半径 (メートル)
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// ── 有効報告（30分以内）取得 ──
+function getActiveReports() {
+  const now = Date.now();
+  return reports.filter(r => now - r.timestamp < 30 * 60 * 1000);
+}
+
+// ── スポットの最新ステータス取得 ──
+function getSpotStatus(spotId) {
+  const active = getActiveReports().filter(r => r.spotId === spotId);
+  if (active.length === 0) {
+    // デモ用: 初期値をランダムに設定（シード付き）
+    const seed = ['free','free','normal','crowded'];
+    return seed[spotId % seed.length];
+  }
+  return active[active.length - 1].status;
+}
+
+// ── ステータスラベル取得 ──
+function statusLabel(s) {
+  return { free:'🟢 空きあり', normal:'🟡 普通', crowded:'🔴 混雑' }[s] || '—';
+}
+
+// ── 経過時間表示 ──
+function timeAgo(ts) {
+  const d = Math.floor((Date.now() - ts) / 60000);
+  if (d < 1) return 'たった今';
+  if (d < 60) return `${d}分前`;
+  return `${Math.floor(d/60)}時間前`;
+}
+
+// ──────────────────────────────
+// 地図初期化
+// ──────────────────────────────
+function initMap() {
+  map = L.map('map', { zoomControl: true, attributionControl: true })
+    .setView([35.6612, 139.7010], 14);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19
+  }).addTo(map);
+
+  SPOTS.forEach(spot => {
+    const status = getSpotStatus(spot.id);
+    const icon   = createIcon(status);
+    const marker = L.marker([spot.lat, spot.lng], { icon }).addTo(map);
+    marker.bindPopup(buildPopupHTML(spot, status), { maxWidth: 240 });
+    marker.on('click', () => highlightCard(spot.id));
+    markers[spot.id] = marker;
+  });
+}
+
+function createIcon(status) {
+  const color = { free: '#68d391', normal: '#f6ad55', crowded: '#fc8181' }[status] || '#68d391';
+  const html = `
+    <div style="
+      width:34px;height:34px;border-radius:50% 50% 50% 0;
+      transform:rotate(-45deg);background:${color};
+      border:2px solid white;
+      box-shadow:0 2px 10px rgba(0,0,0,0.4);
+      display:flex;align-items:center;justify-content:center;
+    ">
+      <span style="transform:rotate(45deg);font-size:0.9rem">
+        ${{ free:'😊', normal:'😐', crowded:'😓' }[status]}
+      </span>
+    </div>
+  `;
+  return L.divIcon({ html, className: '', iconSize: [34,34], iconAnchor: [17,34], popupAnchor: [0,-38] });
+}
+
+function buildPopupHTML(spot, status) {
+  const badgeStyle = {
+    free:    'background:rgba(104,211,145,0.15);color:#68d391;border:1px solid rgba(104,211,145,0.3)',
+    normal:  'background:rgba(246,173,85,0.15);color:#f6ad55;border:1px solid rgba(246,173,85,0.3)',
+    crowded: 'background:rgba(252,129,129,0.15);color:#fc8181;border:1px solid rgba(252,129,129,0.3)',
+  }[status];
+
+  const active = getActiveReports().filter(r => r.spotId === spot.id);
+  const lastReport = active.length ? timeAgo(active[active.length-1].timestamp) : 'サンプル情報';
+
+  return `
+    <div class="popup-inner" style="color:#e2e8f0;font-family:'Noto Sans JP',sans-serif;">
+      <div class="popup-name" style="font-size:0.92rem;font-weight:700;margin-bottom:3px;">${spot.name}</div>
+      <div class="popup-type" style="font-size:0.7rem;color:#94a3b8;margin-bottom:10px;">${spot.type}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:20px;${badgeStyle}">${statusLabel(status)}</span>
+      </div>
+      <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:10px;">最終報告: ${lastReport}</div>
+      <div style="display:flex;gap:8px;font-size:0.72rem;color:#94a3b8;margin-bottom:10px;">
+        ${spot.wifi  ? '<span>📶 Wi-Fi</span>'  : ''}
+        ${spot.power ? '<span>🔌 電源</span>'   : ''}
+        <span>🔇 ${spot.quiet}</span>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:10px;">
+        <button class="popup-report-btn"
+          style="flex:1;padding:7px 0;border-radius:20px;border:none;
+                 background:linear-gradient(135deg,#63b3ed,#b794f4);color:#0b0f1a;
+                 font-size:0.78rem;font-weight:700;cursor:pointer;"
+          onclick="openModal(${spot.id})">
+          📢 報告
+        </button>
+        <a href="${spot.url}" target="_blank"
+           style="flex:1;text-decoration:none;display:flex;align-items:center;justify-content:center;
+                  padding:7px 0;border-radius:20px;border:1px solid var(--border);
+                  color:var(--text);font-size:0.78rem;font-weight:600;background:rgba(255,255,255,0.05);transition:all var(--transition);"
+           onmouseover="this.style.borderColor='var(--accent1)';this.style.color='var(--accent1)'"
+           onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">
+          🌐 地図・詳細
+        </a>
+      </div>
+    </div>
+  `;
+}
+
+// ──────────────────────────────
+// スポットリスト描画
+// ──────────────────────────────
+function renderList() {
+  const list = document.getElementById('spot-list');
+  list.innerHTML = '';
+
+  const active = getActiveReports();
+
+  // 統計更新
+  const counts = { free:0, normal:0, crowded:0 };
+  SPOTS.forEach(s => counts[getSpotStatus(s.id)]++);
+  document.getElementById('stat-free').textContent    = counts.free;
+  document.getElementById('stat-normal').textContent  = counts.normal;
+  document.getElementById('stat-crowded').textContent = counts.crowded;
+  document.getElementById('stat-reports').textContent = active.length;
+
+  // 各スポットに現在地からの距離を付与
+  const spotsWithDistance = SPOTS.map(spot => {
+    const dist = getDistance(currentLatLng.lat, currentLatLng.lng, spot.lat, spot.lng);
+    return { ...spot, distance: dist };
+  });
+
+  // 距離3km (3000m) 以内のスポットだけに絞り込む
+  const spotsFiltered = spotsWithDistance.filter(spot => spot.distance <= 3000);
+
+  // 距離が近い順にソート
+  spotsFiltered.sort((a, b) => a.distance - b.distance);
+
+  // もし3km以内にスポットが無い場合、ユーザーへのガイドを表示
+  if (spotsFiltered.length === 0) {
+    list.innerHTML = `
+      <div style="padding: 24px 16px; text-align: center; color: var(--muted); border: 1px dashed var(--border); border-radius: var(--radius); margin-top: 10px;">
+        <div style="font-size: 2rem; margin-bottom: 12px;">🔍</div>
+        <p style="font-size: 0.85rem; font-weight: 700; color: var(--text); margin-bottom: 6px;">この周辺にスポットがありません</p>
+        <p style="font-size: 0.75rem; line-height: 1.5;">
+          上の検索窓で<br>
+          <strong style="color: var(--accent1)">「渋谷」「新宿」「東京」</strong><br>
+          と検索して体験してみてください！
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  spotsFiltered.forEach(spot => {
+    const status = getSpotStatus(spot.id);
+    if (currentFilter !== 'all' && status !== currentFilter) return;
+
+    const spotReports = active.filter(r => r.spotId === spot.id);
+    const lastReport  = spotReports.length ? timeAgo(spotReports[spotReports.length-1].timestamp) : 'サンプル';
+
+    // 距離の表示フォーマット（1km未満はm、1km以上はkm表示）
+    const distText = spot.distance < 1000
+      ? `${Math.round(spot.distance)}m`
+      : `${(spot.distance / 1000).toFixed(1)}km`;
+
+    const card = document.createElement('div');
+    card.className   = 'spot-card';
+    card.dataset.status = status;
+    card.dataset.id     = spot.id;
+    card.innerHTML = `
+      <div class="spot-top">
+        <div>
+          <div class="spot-name">${spot.name}</div>
+          <div class="spot-type">${spot.type} <span style="color:var(--accent1);margin-left:6px;font-weight:600;">🚗 ${distText}</span></div>
+        </div>
+        <span class="status-badge ${status}">${statusLabel(status)}</span>
+      </div>
+      <div class="spot-meta">
+        ${spot.wifi  ? '<span class="meta-item">📶 Wi-Fi</span>'  : ''}
+        ${spot.power ? '<span class="meta-item">🔌 電源</span>'   : ''}
+        <span class="meta-item">🔇 ${spot.quiet}</span>
+      </div>
+      <div class="spot-updated">🕐 最終報告: ${lastReport}</div>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button class="btn-report" style="margin-top:0; flex:1; justify-content:center;" onclick="openModal(${spot.id}); event.stopPropagation()">
+          📢 報告する
+        </button>
+        <a href="${spot.url}" target="_blank" onclick="event.stopPropagation()"
+           style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;
+                  font-size:0.72rem; font-weight:700; padding:6px 12px; border-radius:20px;
+                  border:1px solid var(--border); background:rgba(255,255,255,0.05); color:var(--text); transition:all var(--transition);"
+           onmouseover="this.style.borderColor='var(--accent1)';this.style.color='var(--accent1)'"
+           onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">
+          🌐 詳細
+        </a>
+      </div>
+    `;
+    card.addEventListener('click', () => {
+      flyToSpot(spot);
+      highlightCard(spot.id);
+    });
+    list.appendChild(card);
+  });
+}
+
+function highlightCard(spotId) {
+  document.querySelectorAll('.spot-card').forEach(c => c.classList.remove('active'));
+  const card = document.querySelector(`.spot-card[data-id="${spotId}"]`);
+  if (card) {
+    card.classList.add('active');
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function flyToSpot(spot) {
+  if (!map) return;
+  map.flyTo([spot.lat, spot.lng], 16, { duration: 0.8 });
+  if (markers[spot.id]) {
+    setTimeout(() => markers[spot.id].openPopup(), 900);
+  }
+}
+
+// ──────────────────────────────
+// フィルター
+// ──────────────────────────────
+function filterSpots(filter) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.filter === filter);
+  });
+  renderList();
+}
+
+let userLocationMarker = null;
+
+// ── 現在地ピン（手動・GPS共通）の描画更新 ──
+function updateUserLocationMarker(lat, lng, label) {
+  currentLatLng = { lat, lng }; // 現在地情報を更新
+  
+  if (userLocationMarker) {
+    map.removeLayer(userLocationMarker);
+  }
+  userLocationMarker = L.circleMarker([lat, lng], {
+    radius: 10,
+    color: '#63b3ed',
+    fillColor: '#63b3ed',
+    fillOpacity: 0.35,
+    weight: 2,
+  }).addTo(map).bindPopup(`📍 ${label}`).openPopup();
+
+  renderList(); // リストの距離ソートと描画をトリガー
+}
+
+// ──────────────────────────────
+// 現在地取得 (GPS)
+// ──────────────────────────────
+function locateMe() {
+  const btn = document.getElementById('btn-locate');
+  btn.textContent = '取得中…';
+  btn.disabled = true;
+
+  if (!navigator.geolocation) {
+    showToast('⚠️ お使いのブラウザは位置情報をサポートしていません');
+    btn.textContent = '🎯 GPS現在地';
+    btn.disabled = false;
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const { latitude, longitude } = pos.coords;
+      map.flyTo([latitude, longitude], 15, { duration: 1 });
+      updateUserLocationMarker(latitude, longitude, '現在地 (GPS)');
+      btn.textContent = '🎯 GPS現在地';
+      btn.disabled = false;
+    },
+    err => {
+      showToast('⚠️ 位置情報の取得に失敗しました');
+      btn.textContent = '🎯 GPS現在地';
+      btn.disabled = false;
+    }
+  );
+}
+
+// ──────────────────────────────
+// 場所・駅名の手動検索
+// ──────────────────────────────
+function searchLocation() {
+  const input = document.getElementById('search-input');
+  const query = input.value.trim();
+  if (!query) {
+    showToast('⚠️ 検索する場所を入力してください');
+    return;
+  }
+
+  const btn = document.querySelector('.btn-search');
+  const originalText = btn.textContent;
+  btn.textContent = '⏳';
+  btn.disabled = true;
+
+  // OpenStreetMapの無料検索API (Nominatim) を利用
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
+
+  fetch(url)
+    .then(res => res.json())
+    .then(data => {
+      if (data && data.length > 0) {
+        const result = data[0];
+        const lat = parseFloat(result.lat);
+        const lng = parseFloat(result.lon);
+        
+        map.flyTo([lat, lng], 15, { duration: 1 });
+        updateUserLocationMarker(lat, lng, query);
+        showToast(`📍 「${query}」に移動しました`);
+      } else {
+        showToast('⚠️ 場所が見つかりませんでした。別の言葉で試してください。');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      showToast('⚠️ 検索中にエラーが発生しました');
+    })
+    .finally(() => {
+      btn.textContent = originalText;
+      btn.disabled = false;
+    });
+}
+
+// ──────────────────────────────
+// 投稿モーダル
+// ──────────────────────────────
+function openModal(spotId) {
+  modalSpotId    = spotId;
+  selectedStatus = null;
+  document.getElementById('modal-comment').value = '';
+  document.getElementById('btn-submit').disabled = true;
+
+  const spot = SPOTS.find(s => s.id === spotId);
+  document.getElementById('modal-spot-name').textContent = `📍 ${spot?.name || ''}`;
+
+  document.querySelectorAll('.status-choice').forEach(c => c.classList.remove('selected'));
+
+  document.getElementById('modal-overlay').classList.add('show');
+
+  // マップポップアップを閉じる
+  if (map) map.closePopup();
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModalFn();
+}
+
+function closeModalFn() {
+  document.getElementById('modal-overlay').classList.remove('show');
+  modalSpotId = null;
+  selectedStatus = null;
+}
+
+function selectStatus(status) {
+  selectedStatus = status;
+  document.querySelectorAll('.status-choice').forEach(c => c.classList.remove('selected'));
+  document.getElementById(`choice-${status}`).classList.add('selected');
+  document.getElementById('btn-submit').disabled = false;
+}
+
+function submitReport() {
+  if (!selectedStatus || !modalSpotId) return;
+
+  const comment = document.getElementById('modal-comment').value.trim();
+  const report = {
+    id:        Date.now(),
+    spotId:    modalSpotId,
+    status:    selectedStatus,
+    comment,
+    timestamp: Date.now(),
+  };
+
+  reports.push(report);
+  // 古い報告を整理（1000件まで）
+  if (reports.length > 1000) reports = reports.slice(-1000);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
+
+  closeModalFn();
+  refreshAll();
+  showToast('✅ 報告ありがとう！情報が更新されました 🎉');
+}
+
+// ──────────────────────────────
+// マーカー更新
+// ──────────────────────────────
+function refreshAll() {
+  // マーカーのアイコンと popup を更新
+  SPOTS.forEach(spot => {
+    const status = getSpotStatus(spot.id);
+    const icon = createIcon(status);
+    if (markers[spot.id]) {
+      markers[spot.id].setIcon(icon);
+      markers[spot.id].setPopupContent(buildPopupHTML(spot, status));
+    }
+  });
+  renderList();
+}
+
+// ──────────────────────────────
+// トースト通知
+// ──────────────────────────────
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3200);
+}
+
+// ──────────────────────────────
+// 期限切れ報告を自動削除（30分おき）
+// ──────────────────────────────
+function cleanReports() {
+  const now = Date.now();
+  const before = reports.length;
+  reports = reports.filter(r => now - r.timestamp < 30 * 60 * 1000);
+  if (reports.length !== before) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
+    refreshAll();
+  }
+}
+
+// ──────────────────────────────
+// 初期化
+// ──────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  initMap();
+  renderList();
+  setInterval(cleanReports, 5 * 60 * 1000); // 5分ごとにクリーン
+  setInterval(() => renderList(), 60 * 1000); // 1分ごとに「何分前」を更新
+});
+</script>
+</body>
+</html>
