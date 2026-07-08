@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="どこすわ？ v5 — 周辺のカフェ・図書館・自習室の混雑状況をリアルタイムで確認。AI予測の根拠を可視化し、信頼性を向上。" />
-  <title>どこすわ？ v5 — AI予測の根拠可視化</title>
+  <meta name="description" content="どこすわ？ v6 — 独自ポイント＆特典システム。カフェ・図書館の混雑状況を報告してポイントを貯め、お得なガチャを回そう。" />
+  <title>どこすわ？ v6 — ポイント＆特典ガチャ</title>
 
   <!-- Leaflet.js -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -813,12 +813,12 @@
     <div class="logo">
       <div class="logo-icon">📍</div>
       <div class="logo-text">
-        <h1>どこすわ？ v5</h1>
-        <small>AI予測の根拠可視化</small>
+        <h1>どこすわ？ v6</h1>
+        <small>ポイント＆特典ガチャ</small>
       </div>
     </div>
     <div class="header-actions">
-      <button class="btn-pill btn-wallet" id="btn-wallet" onclick="toggleWalletConnection()">🔐 ウォレット接続</button>
+      <button class="btn-pill btn-wallet" id="btn-login" onclick="toggleLogin()">👤 ログイン</button>
       <div class="search-box">
         <input type="text" id="search-input" placeholder="場所・駅名を入力..." onkeydown="if(event.key==='Enter') searchLocation()">
         <button class="btn-search" onclick="searchLocation()">🔍</button>
@@ -839,8 +839,7 @@
     <div class="stat-divider"></div>
     <div class="stat-item"><span class="stat-num" id="stat-reports">0</span><span>報告</span></div>
     <div class="stat-divider"></div>
-    <div class="stat-item"><span class="stat-num" id="join-balance" style="color:var(--accent4)">0</span><span>JOIN</span></div>
-    <div class="stat-item"><span class="stat-num" id="ichigo-balance" style="color:var(--accent2)">0</span><span>ICHIGO</span></div>
+    <div class="stat-item"><span class="stat-num" id="stat-points" style="color:var(--accent4)">0</span><span>pt</span></div>
   </div>
 
   <!-- ══ MAIN LAYOUT ══ -->
@@ -851,6 +850,7 @@
       <div class="sidebar-header">
         <div class="sidebar-tabs">
           <button class="sidebar-tab active" data-tab="spots" onclick="switchTab('spots')">📋 スポット</button>
+          <button class="sidebar-tab" data-tab="rewards" onclick="switchTab('rewards')">🎁 特典</button>
           <button class="sidebar-tab" data-tab="dashboard" onclick="switchTab('dashboard')">📊 検証結果</button>
         </div>
         <div id="filter-area">
@@ -870,6 +870,26 @@
           <div id="ai-text">混雑予測をもとに最適なスポットを提案します。</div>
         </div>
         <div class="spot-list" id="spot-list"></div>
+      </div>
+
+      <!-- Rewards panel -->
+      <div class="sidebar-panel" data-panel="rewards" id="panel-rewards">
+        <div style="padding:14px; display:flex; flex-direction:column; gap:12px; height:100%; overflow-y:auto; width:100%;">
+          <div class="ai-summary" style="margin:0;">
+            <div class="ai-title">🎁 ポイントを使ってガチャを回そう！</div>
+            <div>報告で貯めたポイント（50pt/回）でお得なクーポンが当たります。</div>
+          </div>
+          <div style="text-align:center; padding: 24px 20px; background:var(--card); border:1px solid var(--border); border-radius:14px; position:relative; overflow:hidden;">
+            <div id="gacha-emoji" style="font-size:3.5rem; margin-bottom:10px; transition:transform 0.3s;">🎰</div>
+            <div style="font-size:1.2rem; font-weight:800; color:var(--accent1); margin-bottom:5px;">特典ガチャ</div>
+            <div style="font-size:0.8rem; color:var(--muted); margin-bottom:16px;">所持ポイント: <span id="reward-points-display" style="font-weight:800; color:var(--accent4); font-size:1rem;">0</span> pt</div>
+            <button id="btn-gacha" onclick="playGacha()" style="width:100%; padding:14px; border-radius:30px; border:none; background:linear-gradient(135deg,var(--accent4),var(--accent1)); color:#0b0f1a; font-weight:800; cursor:pointer; font-size:0.9rem; transition:transform 0.2s; font-family:inherit;">50pt で回す！</button>
+          </div>
+          <h3 style="font-size:0.85rem; font-weight:700; color:var(--text); margin-top:10px; padding-left:4px;">🎒 獲得したクーポン</h3>
+          <div id="reward-inventory" style="display:flex; flex-direction:column; gap:8px;">
+            <div style="text-align:center; color:var(--muted); font-size:0.75rem; padding:16px;">まだクーポンはありません</div>
+          </div>
+        </div>
       </div>
 
       <!-- Dashboard panel -->
@@ -1029,14 +1049,14 @@ const HOUR_LABELS = ['8','9','10','11','12','13','14','15','16','17','18','19'];
    STATE
    ═══════════════════════════════════════════════ */
 const STORAGE_KEY = 'dokosua_reports';
-const WALLET_KEY  = 'dokosua_wallet';
+const USER_KEY    = 'dokosua_user';
 const FB_KEY      = 'dokosua_feedback';
 const REACTION_KEY= 'dokosua_reactions';
 const THEME_KEY   = 'dokosua_theme';
 const ONBOARD_KEY = 'dokosua_onboarded';
 
 let reports       = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-let walletState   = JSON.parse(localStorage.getItem(WALLET_KEY) || '{"isConnected":false,"address":"","joinBalance":0,"ichigoBalance":0}');
+let userState     = JSON.parse(localStorage.getItem(USER_KEY) || '{"isLoggedIn":false,"name":"ゲスト","points":0,"coupons":[]}');
 let feedbacks     = JSON.parse(localStorage.getItem(FB_KEY) || '[]');
 let reactions     = JSON.parse(localStorage.getItem(REACTION_KEY) || '{}');
 let currentFilter = 'all';
@@ -1093,7 +1113,7 @@ const ONBOARD_STEPS = [
   { emoji: '📍', title: 'ようこそ「どこすわ？」へ！', desc: 'カフェ・図書館・自習室の混雑状況をリアルタイムで確認。\nまずは使い方をサクッとご紹介します！' },
   { emoji: '🔍', title: '場所を検索しよう', desc: '上部の検索窓に「渋谷」「新宿」「東京」と入力して検索。\n周辺のスポットが地図に表示されます。' },
   { emoji: '📢', title: '混雑状況を報告しよう', desc: 'スポットカードの「報告する」ボタンから\n今の混雑状況をワンタップで共有できます。' },
-  { emoji: '🎁', title: 'トークンを獲得！', desc: 'ウォレットを接続して報告すると +10 JOIN 獲得！\nWeb3 トークン報酬で貢献にインセンティブ。' },
+  { emoji: '🎁', title: 'ポイントでガチャ！', desc: '報告すると「どこすわポイント」が貯まり、お得なクーポンが当たるガチャが引けます！' },
 ];
 
 let onboardStep = 0;
@@ -1174,34 +1194,104 @@ function timeAgo(ts) {
 function getAIPrediction(spotId) { return AI_PREDICTIONS[spotId % AI_PREDICTIONS.length]; }
 function getAIHeadline() { return AI_SUMMARY[Math.floor(Date.now()/60000) % AI_SUMMARY.length]; }
 
-function persistWalletState() { localStorage.setItem(WALLET_KEY, JSON.stringify(walletState)); }
+function persistUserState() { localStorage.setItem(USER_KEY, JSON.stringify(userState)); }
 
 /* ═══════════════════════════════════════════════
-   WALLET
+   USER & REWARDS
    ═══════════════════════════════════════════════ */
-function renderWalletState() {
-  const btn = document.getElementById('btn-wallet');
-  if (walletState.isConnected) {
-    btn.textContent = `✅ ${walletState.address.slice(0,6)}...${walletState.address.slice(-4)}`;
+function renderUserState() {
+  const btn = document.getElementById('btn-login');
+  if (userState.isLoggedIn) {
+    btn.textContent = `👤 ${userState.name}`;
     btn.style.background = 'linear-gradient(135deg,#68d391,#63b3ed)';
   } else {
-    btn.textContent = '🔐 ウォレット接続';
+    btn.textContent = '👤 ログイン';
     btn.style.background = 'linear-gradient(135deg,#f6ad55,#63b3ed)';
   }
-  document.getElementById('join-balance').textContent = walletState.joinBalance;
-  document.getElementById('ichigo-balance').textContent = walletState.ichigoBalance;
+  document.getElementById('stat-points').textContent = userState.points;
+  
+  const rewardDisplay = document.getElementById('reward-points-display');
+  if (rewardDisplay) rewardDisplay.textContent = userState.points;
+
+  renderCoupons();
 }
 
-function toggleWalletConnection() {
-  if (walletState.isConnected) { showToast('✅ すでにウォレット接続済みです'); return; }
-  walletState = {
-    isConnected: true,
-    address: `0x${Math.random().toString(16).slice(2,10)}${Math.random().toString(16).slice(2,10)}`,
-    joinBalance: 120, ichigoBalance: 320,
-  };
-  persistWalletState(); renderWalletState();
-  showToast('✅ ウォレット接続に成功しました！');
+function toggleLogin() {
+  if (userState.isLoggedIn) { showToast('✅ すでにログイン済みです'); return; }
+  userState.isLoggedIn = true;
+  userState.name = 'ユーザー' + Math.floor(Math.random()*1000);
+  userState.points = 120; // Initial bonus
+  if (!userState.coupons) userState.coupons = [];
+  persistUserState(); renderUserState();
+  showToast('✅ ログインしました！初回ログインボーナス 120pt GET！');
   launchConfetti();
+}
+
+function renderCoupons() {
+  const inv = document.getElementById('reward-inventory');
+  if (!inv) return;
+  if (!userState.coupons || userState.coupons.length === 0) {
+    inv.innerHTML = '<div style="text-align:center; color:var(--muted); font-size:0.75rem; padding:16px;">まだクーポンはありません</div>';
+    return;
+  }
+  inv.innerHTML = userState.coupons.map(c => `
+    <div style="background:rgba(99,179,237,0.1); border:1px solid rgba(99,179,237,0.3); padding:10px 14px; border-radius:10px; display:flex; align-items:center; gap:10px;">
+      <div style="font-size:1.5rem;">🎟️</div>
+      <div>
+        <div style="font-size:0.8rem; font-weight:700; color:var(--text);">${c.name}</div>
+        <div style="font-size:0.65rem; color:var(--muted);">${c.date}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function playGacha() {
+  if (!userState.isLoggedIn) {
+    showToast('⚠️ ガチャを引くにはログインしてください');
+    return;
+  }
+  if (userState.points < 50) {
+    showToast('⚠️ ポイントが足りません（50pt必要です）');
+    return;
+  }
+
+  const btn = document.getElementById('btn-gacha');
+  const emoji = document.getElementById('gacha-emoji');
+  btn.disabled = true;
+  btn.textContent = '抽選中...';
+  userState.points -= 50;
+  persistUserState();
+  renderUserState();
+
+  // Spinning animation
+  let ticks = 0;
+  const icons = ['☕','🍩','💻','📚','🎉','🎟️'];
+  const interval = setInterval(() => {
+    emoji.textContent = icons[ticks % icons.length];
+    emoji.style.transform = `scale(${1 + (ticks%3)*0.1})`;
+    ticks++;
+  }, 100);
+
+  setTimeout(() => {
+    clearInterval(interval);
+    emoji.style.transform = 'scale(1)';
+    const prizes = ['コーヒー10%OFFクーポン', '自習室1時間無料チケット', 'プレミアムAI予測 (1日体験)', 'カフェドーナツ無料券'];
+    const prize = prizes[Math.floor(Math.random() * prizes.length)];
+    emoji.textContent = '🎉';
+    
+    userState.coupons.unshift({
+      name: prize,
+      date: new Date().toLocaleDateString('ja-JP')
+    });
+    persistUserState();
+    renderUserState();
+
+    showToast(`🎁 おめでとうございます！「${prize}」を獲得しました！`);
+    launchConfetti();
+
+    btn.disabled = false;
+    btn.textContent = 'もう一度回す (50pt)';
+  }, 1500);
 }
 
 /* ═══════════════════════════════════════════════
@@ -1662,10 +1752,10 @@ function selectStatus(status) {
 function submitReport() {
   if (!selectedStatus || !modalSpotId) return;
   const comment = document.getElementById('modal-comment').value.trim();
-  const reward = walletState.isConnected ? 10 : 0;
+  const reward = userState.isLoggedIn ? 10 : 0;
   reports.push({ id: Date.now(), spotId: modalSpotId, status: selectedStatus, comment, timestamp: Date.now(), reward });
 
-  if (walletState.isConnected) { walletState.joinBalance += reward; persistWalletState(); }
+  if (userState.isLoggedIn) { userState.points += reward; persistUserState(); }
   if (reports.length > 1000) reports = reports.slice(-1000);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
 
@@ -1674,11 +1764,11 @@ function submitReport() {
 
   reportCount++;
 
-  if (walletState.isConnected) {
-    showToast(`✅ 報告ありがとう！+${reward} JOIN 獲得！`);
+  if (userState.isLoggedIn) {
+    showToast(`✅ 報告ありがとう！+${reward} pt 獲得！`);
     launchConfetti();
   } else {
-    showToast('✅ 報告ありがとう！ウォレット接続でJOINを獲得できます');
+    showToast('✅ 報告ありがとう！ログインするとポイントが貯まります');
   }
 
   // Auto-show feedback after 3 reports
@@ -1813,7 +1903,7 @@ function refreshAll() {
     }
   });
   renderList();
-  renderWalletState();
+  renderUserState();
 }
 
 function showToast(msg) {
@@ -1837,7 +1927,7 @@ window.addEventListener('DOMContentLoaded', () => {
   initFeedbackModal();
   initMap();
   renderList();
-  renderWalletState();
+  renderUserState();
 
   // Onboarding
   if (!localStorage.getItem(ONBOARD_KEY)) {
